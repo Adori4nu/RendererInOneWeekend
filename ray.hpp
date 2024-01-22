@@ -2,7 +2,7 @@
 #include "vec3.hpp"
 
 #pragma region declaration of ray
-class ray{
+class ray {
 public:
     ray() {}
     ray(const vec3& a, const vec3& b) { A = a; B = b; }
