@@ -2,13 +2,13 @@
 #include "rtweekend.hpp"
 
 
-class uber_material;
+class material;
 
 #pragma region declaration of hit record
 struct hit_record {
     point3 p{};
     vec3 normal{};
-    std::shared_ptr<uber_material> mat;
+    std::shared_ptr<material> mat;
     float t{};
     bool front_face{};
 };

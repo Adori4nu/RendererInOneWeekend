@@ -2,86 +2,73 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <random>
+#include <string>
 
 #include "camera.hpp"
 #include "color.hpp"
 #include "entitylist.hpp"
 #include "sphere.hpp"
 
-vec3 ray_color(const ray& r, const entity& world, int depth) {
-
-    if (depth <= 0)
-        return color{ 0, 0, 0 };
-
-    hit_record rec;
-    float near_zero{ std::nextafterf(0.f, 1.f) };
-    //, std::numeric_limits<float>::max()
-    if (world.hit(r, interval(near_zero, pos_infinity), rec)) {
-        ray scattered;
-        color attenuation;
-        if (rec.mat->scatter(r, rec, attenuation, scattered)) // material dont have scatter function yet
-            return attenuation * ray_color(scattered, world, depth - 1);
-        return color{ 0, 0, 0 };
-    }
-
-    vec3 unit_direction{ unit_vector(r.direction()) };
-    float t{ 0.5f * ( unit_direction.y() + 1.0f ) };
-    return ( 1.0f - t ) * vec3{ 1.0f, 1.0f, 1.0f } + t * vec3{ 0.5f, 0.7f, 1.0f };
-}
-
 int main()
 {
-    float from{ 0.f };
-    float to{ std::nexttowardf(1.f, 0.f) };
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(from, to);
+    entity_list world{};
+    auto ground_material{ std::make_shared<lambertian>(color(0.5f, 0.5f, 0.5f)) };
+    world.add(std::make_shared<sphere>(point3(0.f,-1000.f,0.f), 1000.f, ground_material));
 
-    int nx{ 200 };
-    int ny{ 100 };
-    int ns{ 100 };
-    
-    entity *list[2];
-    list[0] = new sphere{ vec3{ 0.f, 0.f, -1.f }, 0.5f };
-    list[1] = new sphere{ vec3{ 0.f, -100.5f, -1.f }, 100.f };
-    entity *world{ new entity_list{ list, 2 } };
+    for (int a = -11; a < 11; ++a)
+    {
+        for (int b = -11; b < 11; ++b)
+        {
+            auto choose_mat{ random_float() };
+            point3 center{ a + 0.9f * random_float(), 0.2f, b + 0.9f * random_float() };
+            
+            if ((center - point3(4, 0.2, 0)).length() > 0.9) {
+                std::shared_ptr<material> sphere_material;
+                
+                if (choose_mat < 0.8f ) {
+                    auto albedo = color::random() * color::random();
+                    sphere_material = std::make_shared<lambertian>(albedo);
+                    world.add(std::make_shared<sphere>(center, 0.2f, sphere_material));
+                } else if (choose_mat < 0.95f) {
+                    auto albedo = color::random(0.5f, 1.f);
+                    auto fuzz = random_float(0.f, 0.5f);
+                    sphere_material = std::make_shared<metalic>(albedo, fuzz);
+                    world.add(std::make_shared<sphere>(center, 0.2f, sphere_material));
+                } else {
+                    sphere_material = std::make_shared<dielectric>(1.5f);
+                    world.add(std::make_shared<sphere>(center, 0.2f, sphere_material));
+                }
+            }
+        }
+    }
+
+    auto material1 = std::make_shared<dielectric>(1.5f);
+    world.add(std::make_shared<sphere>(point3(0.f, 1.f, 0.f), 1.0f, material1));
+
+    auto material2 = std::make_shared<lambertian>(color(0.4f, 0.2f, 0.1f));
+    world.add(std::make_shared<sphere>(point3(-4.f, 1.f, 0.f), 1.0f, material2));
+
+    auto material3 = std::make_shared<metalic>(color(0.7f, 0.6f, 0.5f), 0.0f);
+    world.add(std::make_shared<sphere>(point3(4.f, 1.f, 0.f), 1.0f, material3));
 
     camera cam;
 
-    std::ofstream file("renderer_output.ppm");
-    if(!file.is_open())
-    {
-        file.clear();
-        file.open("renderer_output.ppm", std::ios::out);
-    }
-    if (file.is_open())
-    {
-        file.clear();
-        file << "P3\n" << nx << " " << ny << "\n255\n";
-        for (int j{ ny - 1 }; j >= 0; j--)
-        {
-            std::cout << dis(gen) << "\n";
-            for (int i{ 0 }; i < nx; i++)
-            {
-                vec3 col{ 0.f, 0.f, 0.f };
-                for (int s{ 0 }; s < ns; s++)
-                {
-                    float u{ float(i + dis(gen)) / float(nx) };
-                    float v{ float(j + dis(gen)) / float(ny) };
-                    ray r{ cam.get_ray(u, v) };
-                    vec3 p{ r.at(2.f) };
-                    col += ray_color(r, world);
-                }
-                col /= float(ns);
-                col = vec3( sqrt(col[0]), sqrt(col[1]), sqrt(col[2]));
-                int ir{ int(255.99f * col.r()) };
-                int ig{ int(255.99f * col.g()) };
-                int ib{ int(255.99f * col.b()) };
-                file << ir << " " << ig << " " << ib << "\n";
-            }
-        }
-        file.close();
-    }
-    else { std::cerr << "Unable to open file for writing." << std::endl; }
+    cam.aspect_ratio      = 16.0 / 10.0;
+    cam.image_width       = 120;
+    cam.samples_per_pixel = 10;
+    cam.max_depth         = 20;
+
+    cam.vfov     = 20;
+    cam.lookfrom = point3(13,2,3);
+    cam.lookat   = point3(0,0,0);
+    cam.vup      = vec3(0,1,0);
+
+    cam.defocus_angle = 0.6;
+    cam.focus_dist    = 10.0;
+
+    cam.render(world);
+    std::string _;
+    std::getline(std::cin, _);
 }

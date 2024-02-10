@@ -3,15 +3,15 @@
 
 static_assert(std::numeric_limits<float>::is_iec559, "IEEE 754 required");
 
-constexpr const float pos_infinity{ std::numeric_limits<float>::infinity() };
-constexpr const float neg_infinity{ -std::numeric_limits<float>::infinity() };
+constexpr const float infinity{ std::numeric_limits<float>::infinity() };
+static const float near_zero{ std::nextafterf(0.f, 1.f) };
 
 #pragma region interval declaration
 class interval {
 public:
     float min, max;
 
-    interval() : min(pos_infinity), max(neg_infinity) {}
+    interval() : min(+infinity), max(-infinity) {}
     interval(float _min, float _max) : min(_min), max(_max) {}
 
     float size() const { return max - min; }
@@ -27,8 +27,8 @@ public:
     static const interval empty, universe;
 };
 
-const static interval empty   (pos_infinity, neg_infinity);
-const static interval universe(neg_infinity, pos_infinity);
+const static interval empty   (+infinity, -infinity);
+const static interval universe(-infinity, +infinity);
 #pragma endregion
 
 interval interval::expand(float delta) const { 
