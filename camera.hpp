@@ -83,7 +83,7 @@ private:
 #pragma endregion
 
 inline void camera::initialize() {
-    image_height = static_cast<int>(image_width/ aspect_ratio);
+    image_height = static_cast<int>(image_width / aspect_ratio);
     image_height = ( image_height < 1 ) ? 1 : image_height;
 
     center = lookfrom;
@@ -103,9 +103,7 @@ inline void camera::initialize() {
     pixel_delta_u = viewport_u / image_width;
     pixel_delta_v = viewport_v / image_height;
 
-    auto viewport_upper_left{ 
-        center - ( focus_dist * w ) - viewport_u / 2 - viewport_v / 2
-        };
+    auto viewport_upper_left{ center - ( focus_dist * w ) - viewport_u / 2 - viewport_v / 2 };
     pixel00_loc = viewport_upper_left + 0.5f * ( pixel_delta_u + pixel_delta_v );
 
     auto defocus_radius = focus_dist * tan( degrees_to_radians( defocus_angle / 2 ) );
@@ -151,11 +149,11 @@ inline color camera::ray_color(const ray &r, int depth, const entity &world) con
     
     hit_record rec{};
 
-    if (world.hit(r, interval(0.001f, +infinity), rec))
+    if (world.hit(r, interval(0.001f, infinity), rec))
     {
         ray scattered{};
         color attenuation{};
-        if (rec.mat->scatter( r, rec, attenuation, scattered )) // material dont have scatter function yet
+        if (rec.mat->scatter( r, rec, attenuation, scattered ))
             return attenuation * ray_color(scattered, depth - 1, world);
         return color{ 0.f, 0.f, 0.f };
     }

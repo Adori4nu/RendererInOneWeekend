@@ -27,7 +27,8 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) {
     b = linear_to_gamma(b);
 
     // Write the translated [0,255] value of each color component.
-    static const interval intensity(0.f, std::nexttowardf(1.f, 0.f));
+    // std::nexttowardf(1.f, 0.f)
+    static const interval intensity(0.f, 0.999f);
     out << static_cast<int>(256 * intensity.clamp(r)) << ' '
         << static_cast<int>(256 * intensity.clamp(g)) << ' '
         << static_cast<int>(256 * intensity.clamp(b)) << '\n';

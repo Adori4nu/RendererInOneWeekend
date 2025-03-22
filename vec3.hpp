@@ -69,8 +69,8 @@ public:
     }
 
     __forceinline bool vec3::near_zero() const {
-        float near_zero{ std::nextafterf(0.f, 1.f) };
-        // float near_zero{ 1e-8 };
+        // float near_zero{ std::nextafterf(0.f, 1.f) };
+        float near_zero{ 1e-8 };
         return (fabs(e[0]) < near_zero) && (fabs(e[1]) < near_zero) && (fabs(e[2]) < near_zero);
     }
 

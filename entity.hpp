@@ -10,12 +10,12 @@ struct hit_record {
     vec3 normal{};
     std::shared_ptr<material> mat;
     float t{};
-    bool front_face{};
+    bool front_face;
 };
 #pragma endregion
 
 void set_face_normal(hit_record& hit_rec, const ray& r, const vec3& outward_normal) {
-    hit_rec.front_face = dot(r.direction(), outward_normal) < 0.f;
+    hit_rec.front_face = dot(r.direction(), outward_normal) < 0;
     hit_rec.normal = hit_rec.front_face ? outward_normal : -outward_normal;
 }
 
