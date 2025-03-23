@@ -68,7 +68,19 @@ int main()
     cam.defocus_angle = 0.6;
     cam.focus_dist    = 10.0;
 
-    cam.render(world);
+    try {
+        cam.render(world);
+    } catch (const std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get(); // Keeps console open
+        return 1;
+    } catch (...) {
+        std::cerr << "Unknown error occurred!" << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get(); // Keeps console open
+        return 1;
+    }
     std::string _;
     std::getline(std::cin, _);
 }
