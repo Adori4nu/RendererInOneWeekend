@@ -267,6 +267,7 @@ public:
     ~thread_pool_ws()
     {
         done = true;
+        global_work_queue.push(task_type([]{}));  // Dummy task to wake up threads that are in waiting for work state
     }
 
     template <typename Function_type>

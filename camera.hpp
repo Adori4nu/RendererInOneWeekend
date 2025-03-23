@@ -50,7 +50,7 @@ public:
                     try
                     {
                         int x_end{ std::min(i + tile_size, image_width) };
-                        int y_end{ std::min(i + tile_size, image_width) };
+                        int y_end{ std::min(j + tile_size, image_height) };
 
                         // Render pixels in tile
                         for (int y{j}; y < y_end; ++y) {
