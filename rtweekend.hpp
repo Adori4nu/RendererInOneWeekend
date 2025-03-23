@@ -4,8 +4,7 @@
 
 
 __forceinline float degrees_to_radians(float degrees) {
-    using namespace std::numbers;
-    return degrees * pi / 180.0;
+    return degrees * std::numbers::pi / 180.0;
 }
 
 __forceinline float random_float() {

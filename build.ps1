@@ -1,0 +1,1 @@
+cl /EHsc /Ox /nologo /std:c++latest main.cpp /Fertweekend_cl
