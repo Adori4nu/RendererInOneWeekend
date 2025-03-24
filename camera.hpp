@@ -47,33 +47,23 @@ public:
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
                 auto future = thread_pool.submit([this, &world, &frame_buffer, i, j, tile_size]() {
-                    try
-                    {
-                        int x_end{ std::min(i + tile_size, image_width) };
-                        int y_end{ std::min(j + tile_size, image_height) };
+                    
+                    int x_end{ std::min(i + tile_size, image_width) };
+                    int y_end{ std::min(j + tile_size, image_height) };
 
-                        // Render pixels in tile
-                        for (int y{j}; y < y_end; ++y) {
-                            for (int x{i}; x < x_end; ++x) {
-                                color pixel_color{0, 0, 0};
+                    // Render pixels in tile
+                    for (int y{j}; y < y_end; ++y) {
+                        for (int x{i}; x < x_end; ++x) {
+                            color pixel_color{0, 0, 0};
 
-                                for (int sample{ 0 }; sample < samples_per_pixel; ++sample)
-                                {
-                                    ray r{ get_ray(x, y) };
-                                    pixel_color += ray_color(r, max_depth, world);
-                                }
-
-                                frame_buffer[y * image_width + x] = pixel_color;
+                            for (int sample{ 0 }; sample < samples_per_pixel; ++sample)
+                            {
+                                ray r{ get_ray(x, y) };
+                                pixel_color += ray_color(r, max_depth, world);
                             }
+
+                            frame_buffer[y * image_width + x] = pixel_color;
                         }
-                    }
-                    catch(const std::exception& e)
-                    {
-                        std::cerr << "\nException in tile [" << i << "," << j << "]" << " " << e.what() << std::endl;
-                    }
-                    catch(...)
-                    {
-                        std::cerr << "\nUnknown exception in tile [" << i << "," << j << "]" << std::endl;
                     }
                     
                 });

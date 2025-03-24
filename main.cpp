@@ -78,7 +78,6 @@ int main()
     
         if (valid_position) {
             all_spheres.push_back({center, radius});
-            // Choose material as before
             auto choose_mat = random_float();
             std::shared_ptr<material> sphere_material;
             
