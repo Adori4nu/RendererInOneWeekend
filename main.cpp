@@ -5,6 +5,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <numbers>
 
 #include "camera.hpp"
 #include "color.hpp"
