@@ -69,30 +69,27 @@ public:
                     int y_end{ std::min(j + tile_size, image_height) };
 
                     // Render pixels in tile
-                    for (int y{j}; y < y_end; ++y) {
-                        for (int x{i}; x < x_end; ++x) {
-                            color pixel_color{0, 0, 0};
-
-                            int current_sample_count;
-                            {
-                                std::lock_guard<std::mutex> lock(samples_mutex);
-                                current_sample_count = current_samples[y * image_width + x];
-                            }
-
-                            for (int sample{ 0 }; sample < samples_per_pixel; ++sample)
-                            {
+                    // Edited to sample every pixel in tile once and again
+                    // until rendered not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
+                    for (int sample{ 0 }; sample < samples_per_pixel; ++sample) {
+                        for (int y{j}; y < y_end; ++y) {
+                            for (int x{i}; x < x_end; ++x) {
+                                // color pixel_color{0, 0, 0};
                                 ray r{ get_ray(x, y) };
-                                pixel_color += ray_color(r, max_depth, world);
-                            }
+                                // pixel_color += ray_color(r, max_depth, world);
 
-                            {
-                                std::lock_guard<std::mutex> lock(frame_buffer_mutex);
-                                frame_buffer[y * image_width + x] = pixel_color;
-                            }
+                                color sample_color = ray_color(r, max_depth, world);
+                                // int current_sample_count;
+                                {
+                                    std::lock_guard<std::mutex> lock(frame_buffer_mutex);
+                                    frame_buffer[y * image_width + x] += sample_color;
+                                }
+                                {
+                                    std::lock_guard<std::mutex> lock(samples_mutex);
+                                    // current_sample_count = current_samples[y * image_width + x];
+                                    current_samples[y * image_width + x] += 1;
+                                }
 
-                            {
-                                std::lock_guard<std::mutex> lock(samples_mutex);
-                                current_samples[y * image_width + x] += (samples_per_pixel - current_sample_count);
                             }
                         }
                     }
