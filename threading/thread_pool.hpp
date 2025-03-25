@@ -248,7 +248,7 @@ public:
 
     thread_pool_ws() : done{false}, joiner{threads}
     {
-        uint64_t const thread_count{ std::thread::hardware_concurrency() - 2 };
+        uint64_t const thread_count{ std::max(std::thread::hardware_concurrency() - 2u, 1u) };
         try
         {
             for (size_t i {0}; i < thread_count; ++i)
