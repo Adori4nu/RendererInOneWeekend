@@ -1,1 +1,1 @@
-cl /EHsc /Ox /nologo /std:c++latest main.cpp /Fertweekend_cl
+cl /EHsc /Ox /nologo /std:c++latest main.cpp /Fertweekend_cl /link user32.lib gdi32.lib

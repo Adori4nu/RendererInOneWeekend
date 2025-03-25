@@ -7,7 +7,9 @@
 #include "material.hpp"
 
 #include "threading/thread_pool.hpp"
+#include "gui_window/win_api_window.hpp"
 
+#include <chrono>
 #include <iostream>
 
 #pragma region camera class declaration
@@ -34,11 +36,24 @@ public:
     void render(const entity& world) {
         initialize();
 
-        std::vector<color> frame_buffer(image_width * image_height);
+        std::vector<color> frame_buffer(image_width * image_height, color(0, 0, 0));
+        std::mutex frame_buffer_mutex;
+        std::mutex console_mutex;
 
-        thread_pool_ws thread_pool;
-
+        std::vector<int> current_samples(image_width * image_height, 0);
+        std::mutex samples_mutex;
+        
+        std::atomic<int> completed_tiles(0);
         const int tile_size{ 16 };
+        int total_tiles = ((image_height + tile_size - 1) / tile_size) * 
+                        ((image_width + tile_size - 1) / tile_size);
+        
+        std::thread window_thread = std::thread(window_thread_func, GetModuleHandle(NULL)
+            , image_width, image_height
+            , std::ref(frame_buffer), std::ref(current_samples)
+            , std::ref(frame_buffer_mutex), std::ref(samples_mutex));
+        
+        thread_pool_ws thread_pool;
 
         std::clog << "Rendering..." << std::endl;
 
@@ -46,7 +61,9 @@ public:
 
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
-                auto future = thread_pool.submit([this, &world, &frame_buffer, i, j, tile_size]() {
+                auto future = thread_pool.submit([this, &world, &frame_buffer, &frame_buffer_mutex
+                    , &console_mutex, i, j, tile_size, &completed_tiles
+                    , total_tiles, &current_samples, &samples_mutex]() {
                     
                     int x_end{ std::min(i + tile_size, image_width) };
                     int y_end{ std::min(j + tile_size, image_height) };
@@ -56,14 +73,36 @@ public:
                         for (int x{i}; x < x_end; ++x) {
                             color pixel_color{0, 0, 0};
 
+                            int current_sample_count;
+                            {
+                                std::lock_guard<std::mutex> lock(samples_mutex);
+                                current_sample_count = current_samples[y * image_width + x];
+                            }
+
                             for (int sample{ 0 }; sample < samples_per_pixel; ++sample)
                             {
                                 ray r{ get_ray(x, y) };
                                 pixel_color += ray_color(r, max_depth, world);
                             }
 
-                            frame_buffer[y * image_width + x] = pixel_color;
+                            {
+                                std::lock_guard<std::mutex> lock(frame_buffer_mutex);
+                                frame_buffer[y * image_width + x] = pixel_color;
+                            }
+
+                            {
+                                std::lock_guard<std::mutex> lock(samples_mutex);
+                                current_samples[y * image_width + x] += (samples_per_pixel - current_sample_count);
+                            }
                         }
+                    }
+
+                    int current_completed = ++completed_tiles;
+                    {
+                        std::lock_guard<std::mutex> console_lock(console_mutex);
+                        std::clog << "\rCompleted " << current_completed << "/" << total_tiles
+                                << " tiles (" << (current_completed * 100 / total_tiles) << "%)" 
+                                << std::flush;
                     }
                     
                 });
@@ -72,17 +111,12 @@ public:
             }
         }
 
-        int completed_futures{};
         size_t total_futures{ futures.size() };
-
+        
         for (auto& future: futures) {
             future.wait();
-            completed_futures++;
-            
-            std::clog << "\rCompleted: " << completed_futures << "/" << total_futures
-                      << " tiles (" << (completed_futures * 100 / total_futures) << "%)" << std::flush;
         }
-
+        
         std::ofstream file("renderer_output.ppm");
         if (!file.is_open())
         {
@@ -100,9 +134,18 @@ public:
             }
             file.close();
 
-            std::clog << "\rDone.           \n";
+            std::clog << "\rDone.                    \n";
         }
         else { std::cerr << "Unable to open file for writing." << std::endl; }
+
+        
+        if (window_thread.joinable()) {
+            // Post quit message to window thread
+            // if (g_hwnd && !g_window_closed) {
+            //     PostMessage(g_hwnd, WM_CLOSE, 0, 0);
+            // }
+            window_thread.join();
+        }
     }
 
 private:
