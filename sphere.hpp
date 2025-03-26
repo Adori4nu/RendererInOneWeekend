@@ -5,23 +5,37 @@
 class sphere : public entity {
 public:
     sphere() {}
-    sphere(point3 _center, float r, std::shared_ptr<material> _material)
-        : center(_center)
-        , radius(r)
+        sphere(const point3& _static_center, float r, std::shared_ptr<material> _material)
+        : center(_static_center, vec3(0.f, 0.f, 0.f))
+        , radius(std::fmax(0, r))
         , mat(_material)
          {};
+
+    sphere(const point3& _center1, const point3& _center2, float r, std::shared_ptr<material> _material)
+        : center(_center1, _center2 - _center1)
+        , radius(std::fmax(0, r))
+        , mat(_material)
+         {};
+
+    // sphere(point3 _center, float r, std::shared_ptr<material> _material)
+    //     : center(_center)
+    //     , radius(r)
+    //     , mat(_material)
+    //      {};
 
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const override;
 
 private:
-    point3 center{};
+    // point3 center;
+    ray center;
     float radius{};
     std::shared_ptr<material> mat;
 };
 #pragma endregion
 
 bool sphere::hit(const ray& r, interval ray_t, hit_record& rec) const {
-    vec3 oc{ r.origin() - center };
+    point3 current_center{ center.at(r.time()) };// here could be the issue geting float vector from double time
+    vec3 oc{ r.origin() - current_center  /*- center*/ }; // it needs to stay in this order otherwise its not rendering
     auto a{ r.direction().sqared_length() };
     float half_b{ dot(oc, r.direction()) };
     float c{ oc.sqared_length() - radius * radius };
@@ -40,7 +54,7 @@ bool sphere::hit(const ray& r, interval ray_t, hit_record& rec) const {
 
     rec.t = root;
     rec.p = r.at(rec.t);
-    vec3 otward_normal{ ( rec.p - center) / radius };
+    vec3 otward_normal{ ( rec.p - current_center /*center*/) / radius };
     set_face_normal(rec, r, otward_normal);
     rec.mat = mat;
     

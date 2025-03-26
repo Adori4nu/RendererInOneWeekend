@@ -8,14 +8,26 @@ __forceinline float degrees_to_radians(float degrees) {
 }
 
 __forceinline float random_float() {
+    static std::mt19937 generator(std::random_device{}());
     static std::uniform_real_distribution<float> distribution(0.f, 1.f);
-    static std::mt19937 generator;
     return distribution(generator);
 }
 
 __forceinline float random_float(float min, float max) {
+    static std::mt19937 generator(std::random_device{}());
     static std::uniform_real_distribution<float> distribution(min, max);
-    static std::mt19937 generator;
+    return distribution(generator);
+}
+
+__forceinline double random_double() {
+    static std::mt19937 generator(std::random_device{}());
+    static std::uniform_real_distribution<double> distribution(0., 1.);
+    return distribution(generator);
+}
+
+__forceinline double random_double(double min, double max) {
+    static std::mt19937 generator(std::random_device{}());
+    static std::uniform_real_distribution<double> distribution(min, max);
     return distribution(generator);
 }
 
