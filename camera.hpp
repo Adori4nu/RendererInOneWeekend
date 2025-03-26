@@ -10,6 +10,7 @@
 #include "gui_window/win_api_window.hpp"
 
 #include <chrono>
+#include <format>
 #include <iostream>
 
 #pragma region camera class declaration
@@ -47,17 +48,26 @@ public:
         const int tile_size{ 16 };
         int total_tiles = ((image_height + tile_size - 1) / tile_size) * 
                         ((image_width + tile_size - 1) / tile_size);
+
+        std::chrono::steady_clock::time_point g_render_start_time;
+        std::atomic<bool> g_rendering_active{ false };
+        std::string g_render_time_str;
         
+        g_render_start_time = std::chrono::steady_clock::now();
+        g_rendering_active = true;
+
         std::thread window_thread = std::thread(window_thread_func, GetModuleHandle(NULL)
             , image_width, image_height
             , std::ref(frame_buffer), std::ref(current_samples)
-            , std::ref(frame_buffer_mutex), std::ref(samples_mutex));
+            , std::ref(frame_buffer_mutex), std::ref(samples_mutex)
+            , std::ref(g_render_start_time), std::ref(g_rendering_active)
+            , std::ref(g_render_time_str));
         
         thread_pool_ws thread_pool;
 
-        std::clog << "Rendering..." << std::endl;
-
         std::vector<std::future<void>> futures;
+
+        std::clog << "Rendering..." << std::endl;
 
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
@@ -141,6 +151,23 @@ public:
         for (auto& future: futures) {
             future.wait();
         }
+
+        auto end_time{ std::chrono::steady_clock::now() };
+        auto elapsed{ std::chrono::duration_cast<std::chrono::milliseconds>(end_time - g_render_start_time) };
+
+        int hours = elapsed.count() / 3'600'000;
+        int minutes = (elapsed.count() / 60'000) % 60;
+        int seconds = (elapsed.count() / 1'000) % 60;
+        int milliseconds = elapsed.count() % 1'000;
+
+        g_render_time_str = std::format("Render Time: {:02}h {:02}m {:02}s {:03}ms", 
+                        hours, minutes, seconds, milliseconds);
+
+        g_rendering_active = false;
+
+        std::clog << "\rCompleted " << completed_tiles << "/" << total_tiles
+        << " tiles (" << (completed_tiles * 100 / total_tiles) << "%)\n";
+        std::clog << g_render_time_str << "\n";
         
         std::ofstream file("renderer_output.ppm");
         if (!file.is_open())
@@ -159,7 +186,7 @@ public:
             }
             file.close();
 
-            std::clog << "\rDone.                    \n";
+            std::clog << "Done.\n";
         }
         else { std::cerr << "Unable to open file for writing." << std::endl; }
 

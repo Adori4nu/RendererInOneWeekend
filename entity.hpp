@@ -1,4 +1,6 @@
 #pragma once
+#include "aabb.hpp"
+#include "ray.hpp"
 #include "rtweekend.hpp"
 
 
@@ -22,6 +24,11 @@ void set_face_normal(hit_record& hit_rec, const ray& r, const vec3& outward_norm
 #pragma region declaration of entity
 class entity {
 public:
+
+    virtual ~entity() = default;
+
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
+
+    virtual aabb bounding_box() const = 0;
 };
 #pragma endregion

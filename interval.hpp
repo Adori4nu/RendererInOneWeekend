@@ -12,7 +12,13 @@ public:
     float min, max;
 
     interval() : min(+infinity), max(-infinity) {}
+    
     interval(float _min, float _max) : min(_min), max(_max) {}
+
+    interval(const interval& a, const interval& b) {
+        min = a.min <= b.min ? a.min : b.min;
+        max = a.max >= b.max ? a.max : b.max;
+    }
 
     float size() const { return max - min; }
 

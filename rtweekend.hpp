@@ -7,6 +7,18 @@ __forceinline float degrees_to_radians(float degrees) {
     return degrees * std::numbers::pi / 180.0;
 }
 
+__forceinline int random_int() {
+    static std::mt19937 generator(std::random_device{}());
+    static std::uniform_int_distribution<int> distribution(0, 1);
+    return distribution(generator);
+}
+
+__forceinline int random_int(int min, int max) {
+    static std::mt19937 generator(std::random_device{}());
+    static std::uniform_int_distribution<int> distribution(min, max);
+    return distribution(generator);
+}
+
 __forceinline float random_float() {
     static std::mt19937 generator(std::random_device{}());
     static std::uniform_real_distribution<float> distribution(0.f, 1.f);
