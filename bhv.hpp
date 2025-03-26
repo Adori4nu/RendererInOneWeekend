@@ -47,13 +47,13 @@ public:
 
     bhv_node(std::vector<std::shared_ptr<entity>>& entities, size_t start, size_t end) {
         
-        // bbox = aabb::empty;
-        // for (size_t ent_index=start; ent_index < end; ++ent_index)
-        //     bbox = aabb(bbox, entities[ent_index]->bounding_box());
+        bbox = aabb::empty;
+        for (size_t ent_index=start; ent_index < end; ++ent_index)
+            bbox = aabb(bbox, entities[ent_index]->bounding_box());
 
-        // int axis = bbox.longest_axis();
+        int axis = bbox.longest_axis();
 
-        int axis{ random_int(0, 2) };
+        // int axis{ random_int(0, 2) };
 
         auto comparator{ (axis == 0) ? box_x_compare
                        : (axis == 1) ? box_y_compare

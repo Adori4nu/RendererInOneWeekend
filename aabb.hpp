@@ -64,10 +64,10 @@ public:
             return y.size() > z.size() ? 1 : 2;
     }
 
-    // static const aabb empty, universe;
+    static const aabb empty, universe;
     
 };
 #pragma endregion
 
-// const static aabb empty    (interval::empty,    interval::empty,    interval::empty);
-// const static aabb universe (interval::universe, interval::universe, interval::universe);
+const aabb aabb::empty    (interval::empty,    interval::empty,    interval::empty);
+const aabb aabb::universe (interval::universe, interval::universe, interval::universe);

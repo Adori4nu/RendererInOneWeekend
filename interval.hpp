@@ -33,8 +33,8 @@ public:
     static const interval empty, universe;
 };
 
-const static interval empty   (+infinity, -infinity);
-const static interval universe(-infinity, +infinity);
+const interval interval::empty   (+infinity, -infinity);
+const interval interval::universe(-infinity, +infinity);
 #pragma endregion
 
 interval interval::expand(float delta) const { 

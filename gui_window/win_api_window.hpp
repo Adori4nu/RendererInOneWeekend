@@ -191,10 +191,6 @@
             } else {
                 time_display = final_render_time;
             }
-    
-            // if (g_hwnd) {
-            //     InvalidateRect(g_hwnd, NULL, FALSE); // Force repaint
-            // }
 
             HDC hdc{ GetDC(g_hwnd) };
             if (hdc) {

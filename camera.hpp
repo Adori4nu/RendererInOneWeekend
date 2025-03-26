@@ -39,7 +39,6 @@ public:
 
         std::vector<color> frame_buffer(image_width * image_height, color(0, 0, 0));
         std::mutex frame_buffer_mutex;
-        std::mutex console_mutex;
 
         std::vector<int> current_samples(image_width * image_height, 0);
         std::mutex samples_mutex;
@@ -72,7 +71,7 @@ public:
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
                 auto future = thread_pool.submit([this, &world, &frame_buffer, &frame_buffer_mutex
-                    , &console_mutex, i, j, tile_size, &completed_tiles
+                    , i, j, tile_size, &completed_tiles
                     , total_tiles, &current_samples, &samples_mutex]() {
                     
                     int x_end{ std::min(i + tile_size, image_width) };
@@ -84,62 +83,20 @@ public:
                     for (int sample{ 0 }; sample < samples_per_pixel; ++sample) {
                         for (int y{j}; y < y_end; ++y) {
                             for (int x{i}; x < x_end; ++x) {
-                                // color pixel_color{0, 0, 0};
+                                
                                 ray r{ get_ray(x, y) };
-                                // pixel_color += ray_color(r, max_depth, world);
-
                                 color sample_color = ray_color(r, max_depth, world);
-                                // int current_sample_count;
+                                
                                 {
-                                    std::lock_guard<std::mutex> lock(frame_buffer_mutex);
+                                    std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
+                                    std::lock_guard<std::mutex> lock_samples(samples_mutex);
                                     frame_buffer[y * image_width + x] += sample_color;
-                                }
-                                {
-                                    std::lock_guard<std::mutex> lock(samples_mutex);
-                                    // current_sample_count = current_samples[y * image_width + x];
                                     current_samples[y * image_width + x] += 1;
                                 }
-
                             }
                         }
                     } // my sampling more like 3D softwares uses
 
-                    // for (int y{j}; y < y_end; ++y) {
-                    //     for (int x{i}; x < x_end; ++x) {
-                    //         color pixel_color{0, 0, 0};
-
-                    //         int current_sample_count;
-                    //         {
-                    //             std::lock_guard<std::mutex> lock(samples_mutex);
-                    //             current_sample_count = current_samples[y * image_width + x];
-                    //         }
-
-                    //         for (int sample{ 0 }; sample < samples_per_pixel; ++sample)
-                    //         {
-                    //             ray r{ get_ray(x, y) };
-                    //             pixel_color += ray_color(r, max_depth, world);
-                    //         }
-
-                    //         {
-                    //             std::lock_guard<std::mutex> lock(frame_buffer_mutex);
-                    //             frame_buffer[y * image_width + x] = pixel_color;
-                    //         }
-
-                    //         {
-                    //             std::lock_guard<std::mutex> lock(samples_mutex);
-                    //             current_samples[y * image_width + x] += (samples_per_pixel - current_sample_count);
-                    //         }
-                    //     }
-                    // } // default pixel sampling
-
-                    int current_completed = ++completed_tiles;
-                    {
-                        std::lock_guard<std::mutex> console_lock(console_mutex);
-                        std::clog << "\rCompleted " << current_completed << "/" << total_tiles
-                                << " tiles (" << (current_completed * 100 / total_tiles) << "%)" 
-                                << std::flush;
-                    }
-                    
                 });
 
                 futures.push_back(std::move(future));
@@ -150,6 +107,9 @@ public:
         
         for (auto& future: futures) {
             future.wait();
+            ++completed_tiles;
+            std::clog << "\rCompleted " << completed_tiles << "/" << total_tiles
+            << " tiles (" << (completed_tiles * 100 / total_tiles) << "%)" << std::flush;
         }
 
         auto end_time{ std::chrono::steady_clock::now() };
