@@ -2,6 +2,7 @@
 #include "color.hpp"
 #include "entitylist.hpp"
 #include "rtweekend.hpp"
+#include "texture.hpp"
 
 #pragma region declaration of abstract material
 class material {
@@ -17,14 +18,17 @@ public:
 
 class lambertian : public material {
 public:
-    lambertian(const color& a)
-        : albedo(a)
-         {};
+    
+    lambertian(const color& albedo)
+        : albedo_texture(std::make_shared<solid_color>(albedo)) {}
+    
+    lambertian(std::shared_ptr<texture> tex) : albedo_texture{ tex } {}
 
     bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
 
 private:
     color albedo{};
+    std::shared_ptr<texture> albedo_texture{};
 };
 
 #pragma endregion
@@ -37,7 +41,11 @@ bool lambertian::scatter(const ray& r_in, const hit_record& rec, vec3& attenuati
         scatter_direction = rec.normal;
 
     scattered = ray(rec.p, scatter_direction, r_in.time());
-    attenuation = albedo;
+
+    if (albedo_texture)
+        attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
+    else
+        attenuation = albedo;
 
     return true;
 }

@@ -53,8 +53,6 @@ public:
 
         int axis = bbox.longest_axis();
 
-        // int axis{ random_int(0, 2) };
-
         auto comparator{ (axis == 0) ? box_x_compare
                        : (axis == 1) ? box_y_compare
                                      : box_z_compare };
