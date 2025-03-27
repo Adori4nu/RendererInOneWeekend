@@ -155,6 +155,7 @@ auto scene_selection() -> int {
 
     std::cin.ignore(0, '\n');
 
+    int res{};
     while (running) {
         int scene_choice = get_scene_choice();
         
@@ -162,9 +163,9 @@ auto scene_selection() -> int {
             std::cout << "Exiting program. Goodbye!\n";
             running = false;
         } else {
-            return render_scene(scene_choice);
+            res = render_scene(scene_choice);
         }
     }
 
-    return -1;
+    return res;
 }
