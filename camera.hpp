@@ -128,29 +128,10 @@ public:
         std::clog << "\rCompleted " << completed_tiles << "/" << total_tiles
         << " tiles (" << (completed_tiles * 100 / total_tiles) << "%)\n";
         std::clog << g_render_time_str << "\n";
-        
-        std::ofstream file("renderer_output.ppm");
-        if (!file.is_open())
-        {
-            file.clear();
-            file.open("renderer_output.ppm", std::ios::out);
-        }
-        if (file.is_open())
-        {
-            file.clear();
-            file << "P3\n" << image_width << " " << image_height << "\n255\n";
-            for (int j{ 0 }; j < image_height; ++j) {
-                for (int i{ 0 }; i < image_width; ++i) {
-                    write_color(file, frame_buffer[j * image_width + i], samples_per_pixel);
-                }
-            }
-            file.close();
 
-            std::clog << "Done.\n";
-        }
-        else { std::cerr << "Unable to open file for writing." << std::endl; }
+        save_ppm_binary("renderer_output.ppm", frame_buffer, image_width, image_height, samples_per_pixel);
+        std::clog << "Done.\n";
 
-        
         if (window_thread.joinable()) {
             // Post quit message to window thread
             // if (g_hwnd && !g_window_closed) {
