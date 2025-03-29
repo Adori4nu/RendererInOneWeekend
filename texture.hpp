@@ -90,13 +90,14 @@ public:
 class noise_texture : public texture {
     
     perlin noise;
+    float scale;
 
 public:
 
-    noise_texture() {}
+    noise_texture(float scale) : scale{scale} {}
 
     color value(float u, float v, const point3& p) const override {
-        return color{1.f, 1.f, 1.f} * noise.noise(p);
+        return color{1.f, 1.f, 1.f} * 0.5 * (1.f + noise.noise(scale * p));
     }
 };
 #pragma endregion

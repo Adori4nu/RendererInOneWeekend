@@ -220,7 +220,7 @@ auto earth() -> int {
 auto perlin_spheres() -> int{
     entity_list world;
 
-    auto pertext = std::make_shared<noise_texture>();
+    auto pertext = std::make_shared<noise_texture>(4.f);
     world.add(std::make_shared<sphere>(point3(0.f,-1000.f,0.f), 1000.f, std::make_shared<lambertian>(pertext)));
     world.add(std::make_shared<sphere>(point3(0.f,2.f,0.f), 2.f, std::make_shared<lambertian>(pertext)));
 
