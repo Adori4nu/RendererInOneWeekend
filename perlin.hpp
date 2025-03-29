@@ -52,9 +52,9 @@ class perlin{
             for (int j{}; j < 2; ++j)
                 for (int k{}; k < 2; ++k) {
                     vec3 weight_v(u - i, v - j, w - k);
-                    accum += (i*u + (1-i) * (1-u))
-                            * (j*v + (1-j) * (1-v))
-                            * (k*w + (1-k) * (1-w))
+                    accum += (i*uu + (1-i) * (1-uu))
+                            * (j*vv + (1-j) * (1-vv))
+                            * (k*ww + (1-k) * (1-ww))
                             * dot(c[i][j][k], weight_v);
                 }
 
@@ -99,6 +99,20 @@ public:
 
         // return trilinear_interp(c, u, v, w);
         return perlin_interp(c, u, v, w);
+    }
+
+    float turb(const point3& p, int depth) const {
+        auto accum{ 0.f };
+        auto temp_p{ p };
+        auto weight{ 1.f };
+
+        for (int i{}; i < depth; ++i) {
+            accum += weight * noise(temp_p);
+            weight *= 0.5f;
+            temp_p *= 2;
+        }
+
+        return std::fabs(accum);
     }
 };
 #pragma endregion

@@ -97,7 +97,9 @@ public:
     noise_texture(float scale) : scale{scale} {}
 
     color value(float u, float v, const point3& p) const override {
-        return color{1.f, 1.f, 1.f} * 0.5 * (1.f + noise.noise(scale * p));
+        // return color{1.f, 1.f, 1.f} * 0.5 * (1.f + noise.noise(scale * p)); // prelin smoting perlin
+        // return color{1.f, 1.f, 1.f} * noise.turb(p, 7); // marble noise (turbulent noise texture)
+        return color{.5f, .5f, .5f} * (1 + std::sin(scale * p.z() + 10 * noise.turb(p, 7))); // marble like texture
     }
 };
 #pragma endregion
