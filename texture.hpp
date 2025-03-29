@@ -2,6 +2,7 @@
 
 #include "color.hpp"
 #include "vec3.hpp"
+#include "rtw_stb_image.hpp"
 
 #pragma region Texture decl
 class texture {
@@ -55,9 +56,31 @@ public:
 
         return is_even ? even->value(u, v, p) : odd->value(u, v, p);
     }
-    // color value(double u, double v, const point3& p) const override {
-    //     float sines = sin(inv_scale * p.x()) * sin(inv_scale * p.y()) * sin(inv_scale * p.z());
-    //     return sines < 0 ? odd->value(u, v, p) : even->value(u, v, p);
-    // }
+};
+#pragma endregion
+
+#pragma region ImageTexture decl
+class image_texture : public texture {
+
+    rtw_image image;
+
+public:
+
+    image_texture(std::string_view filename) : image(filename) {}
+
+    color value(double u, double v, const point3& p) const override {
+        // If we have no texture data, then return solid cyan as a debugging aid.
+        if (image.height() <= 0) return color{ 0, 1, 1 };
+
+        u = interval(0, 1).clamp(u);
+        v = 1.0 - interval(0, 1).clamp(v);
+
+        auto i{ int(u * image.width()) };
+        auto j{ int(v * image.height()) };
+        auto pixel{ image.pixel_data(i,j) };
+        auto color_scale{ 1.f / 255 };
+
+        return color{ color_scale*pixel[0], color_scale*pixel[1], color_scale*pixel[2] };
+    }
 };
 #pragma endregion

@@ -10,6 +10,14 @@ class sphere : public entity {
     std::shared_ptr<material> mat;
     aabb bbox;
 
+    static void get_sphere_uv(const point3& p, double& u, double& v) {
+        auto theta{ std::acos(-p.y()) };
+        auto phi{ std::atan2(-p.z(), p.x()) + std::numbers::pi };
+
+        u = phi / (2 * std::numbers::pi);
+        v = theta / std::numbers::pi;
+    }
+
 public:
 
     sphere() {}
@@ -61,8 +69,9 @@ bool sphere::hit(const ray& r, interval ray_t, hit_record& rec) const {
 
     rec.t = root;
     rec.p = r.at(rec.t);
-    vec3 otward_normal{ ( rec.p - current_center) / radius };
-    set_face_normal(rec, r, otward_normal);
+    vec3 outward_normal{ ( rec.p - current_center) / radius };
+    set_face_normal(rec, r, outward_normal);
+    get_sphere_uv(outward_normal, rec.u, rec.v);
     rec.mat = mat;
     
     return true;

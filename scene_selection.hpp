@@ -18,6 +18,7 @@ struct scene_option {
 const std::vector<scene_option> scenes {
     {1, "Bouncing Spheres", "bouncing"}
     , {2, "Two Spheres", "two"}
+    , {3, "Planet Earth", "earth"}
 };
 
 std::string to_lower(const std::string& str) {
@@ -141,6 +142,8 @@ auto render_scene(int scene_id) -> int {
                     return bouncing_spheres();
                 case 2:
                     return two_spheres_scene();
+                case 3:
+                    return earth();
                     
             }
             

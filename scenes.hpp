@@ -183,3 +183,42 @@ auto two_spheres_scene() -> int {
 
     return 0;
 }
+
+auto earth() -> int {
+    auto earth_texture = std::make_shared<image_texture>("earthmap.jpg");
+    auto earth_surface = std::make_shared<lambertian>(earth_texture);
+    auto globe = std::make_shared<sphere>(point3(0.f,0.f,0.f), 2.f, earth_surface);
+
+    camera cam;
+
+    cam.aspect_ratio      = 16.0f / 9.0f;
+    cam.image_width       = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth         = 50;
+
+    cam.vfov     = 20.f;
+    cam.lookfrom = point3(0.f,0.f,12.f);
+    cam.lookat   = point3(0.f,0.f,0.f);
+    cam.vup      = vec3(0.f,1.f,0.f);
+
+    cam.defocus_angle = 0.f;
+
+    
+    try {
+        cam.render(entity_list(globe));
+    } catch (const std::exception& e) {
+        std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    } catch (...) {
+        std::cerr << "\033[1;31mUnknown error occurred!\033[0m" << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    }
+
+    std::cin.get();
+
+    return 0;
+}
