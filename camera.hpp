@@ -154,7 +154,7 @@ private:
     void initialize();
     ray get_ray(int i, int j) const;
     vec3 pixel_sample_square() const;
-    vec3 pixel_sample_disk(double radius) const;
+    vec3 pixel_sample_disk(float radius) const;
     point3 defocus_disk_sample() const;
     color ray_color(const ray& r, int depth, const entity& world) const;
 };
@@ -209,7 +209,7 @@ inline vec3 camera::pixel_sample_square() const
     return ( px * pixel_delta_u ) + ( py * pixel_delta_v );
 }
 
-inline vec3 camera::pixel_sample_disk(double radius) const
+inline vec3 camera::pixel_sample_disk(float radius) const
 {
     auto p{ radius * random_in_unit_disk() };
     return ( p[0] * pixel_delta_u ) + ( p[1] * pixel_delta_v );

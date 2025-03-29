@@ -38,7 +38,7 @@ public:
 
         for (int axis{}; axis < 3; ++axis) {
             const interval& ax{ axis_interval(axis) };
-            const double adinv{ 1.0 / ray_dir[axis] }; // maybe switch to float to be consistent
+            const float adinv{ 1.0f / ray_dir[axis] }; // maybe switch to float to be consistent
 
             auto t0{ (ax.min - ray_origin[axis]) * adinv };
             auto t1{ (ax.max - ray_origin[axis]) * adinv };

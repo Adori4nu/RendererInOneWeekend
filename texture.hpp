@@ -3,13 +3,14 @@
 #include "color.hpp"
 #include "vec3.hpp"
 #include "rtw_stb_image.hpp"
+#include "perlin.hpp"
 
 #pragma region Texture decl
 class texture {
 public:
     virtual ~texture() = default;
 
-    virtual color value(double u, double v, const point3& p) const = 0;
+    virtual color value(float u, float v, const point3& p) const = 0;
 };
 #pragma endregion
 
@@ -26,7 +27,7 @@ public:
 
     solid_color(float r, float g, float b) : solid_color(color(r, g, b)) {}
 
-    color value(double u, double v, const point3& p) const override {
+    color value(float u, float v, const point3& p) const override {
         return albedo;
     }
 };
@@ -47,7 +48,7 @@ public:
     checker_texture(float scale, const color& c1, const color& _c2)
         : checker_texture{ scale, std::make_shared<solid_color>(c1), std::make_shared<solid_color>(_c2) } {}
 
-    color value(double u, double v, const point3& p) const override {
+    color value(float u, float v, const point3& p) const override {
         auto x_integer{ static_cast<int>(std::floor(inv_scale * p.x())) };
         auto y_integer{ static_cast<int>(std::floor(inv_scale * p.y())) };
         auto z_integer{ static_cast<int>(std::floor(inv_scale * p.z())) };
@@ -68,7 +69,7 @@ public:
 
     image_texture(std::string_view filename) : image(filename) {}
 
-    color value(double u, double v, const point3& p) const override {
+    color value(float u, float v, const point3& p) const override {
         // If we have no texture data, then return solid cyan as a debugging aid.
         if (image.height() <= 0) return color{ 0, 1, 1 };
 
@@ -81,6 +82,21 @@ public:
         auto color_scale{ 1.f / 255 };
 
         return color{ color_scale*pixel[0], color_scale*pixel[1], color_scale*pixel[2] };
+    }
+};
+#pragma endregion
+
+#pragma region noise text decl
+class noise_texture : public texture {
+    
+    perlin noise;
+
+public:
+
+    noise_texture() {}
+
+    color value(float u, float v, const point3& p) const override {
+        return color{1.f, 1.f, 1.f} * noise.noise(p);
     }
 };
 #pragma endregion

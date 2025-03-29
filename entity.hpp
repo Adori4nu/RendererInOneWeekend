@@ -12,8 +12,8 @@ struct hit_record {
     vec3 normal{};
     std::shared_ptr<material> mat;
     float t{};
-    double u{};
-    double v{};
+    float u{};
+    float v{};
     bool front_face;
 };
 #pragma endregion

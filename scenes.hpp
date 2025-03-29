@@ -137,8 +137,6 @@ auto bouncing_spheres() -> int
         std::cin.get();
         return 1;
     }
-    std::string _;
-    std::getline(std::cin, _);
 
     return 0;
 }
@@ -179,8 +177,6 @@ auto two_spheres_scene() -> int {
         return 1;
     }
 
-    std::cin.get();
-
     return 0;
 }
 
@@ -218,7 +214,43 @@ auto earth() -> int {
         return 1;
     }
 
-    std::cin.get();
+    return 0;
+}
+
+auto perlin_spheres() -> int{
+    entity_list world;
+
+    auto pertext = std::make_shared<noise_texture>();
+    world.add(std::make_shared<sphere>(point3(0.f,-1000.f,0.f), 1000.f, std::make_shared<lambertian>(pertext)));
+    world.add(std::make_shared<sphere>(point3(0.f,2.f,0.f), 2.f, std::make_shared<lambertian>(pertext)));
+
+    camera cam;
+
+    cam.aspect_ratio      = 16.0 / 9.0;
+    cam.image_width       = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth         = 50;
+
+    cam.vfov     = 20.f;
+    cam.lookfrom = point3(13.f,2.f,3.f);
+    cam.lookat   = point3(0.f,0.f,0.f);
+    cam.vup      = vec3(0.f,1.f,0.f);
+
+    cam.defocus_angle = 0.f;
+
+    try {
+        cam.render(world);
+    } catch (const std::exception& e) {
+        std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    } catch (...) {
+        std::cerr << "\033[1;31mUnknown error occurred!\033[0m" << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    }
 
     return 0;
 }

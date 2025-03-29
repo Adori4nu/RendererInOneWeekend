@@ -10,7 +10,7 @@ class sphere : public entity {
     std::shared_ptr<material> mat;
     aabb bbox;
 
-    static void get_sphere_uv(const point3& p, double& u, double& v) {
+    static void get_sphere_uv(const point3& p, float& u, float& v) {
         auto theta{ std::acos(-p.y()) };
         auto phi{ std::atan2(-p.z(), p.x()) + std::numbers::pi };
 
