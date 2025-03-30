@@ -9,7 +9,11 @@ class material {
 public:
     virtual ~material() = default;
 
-    virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const = 0;
+    virtual color emitted(float u, float v, const point3& p) const {
+        return color{ 0.f, 0.f, 0.f };
+    }
+
+    virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const { return false; }
 };
 
 #pragma endregion
@@ -115,3 +119,20 @@ bool dielectric::scatter(const ray &r_in, const hit_record &rec, color &attenuat
     scattered = ray(rec.p, direction, r_in.time());
     return true;
 }
+
+#pragma region emissive like declaration
+class diffuse_light : public material {
+
+    std::shared_ptr<texture> tex{};
+
+public:
+
+    diffuse_light(std::shared_ptr<texture> tex) : tex{tex} {}
+    diffuse_light(const color& emit) : tex{std::make_shared<solid_color>(emit)} {}
+
+    color emitted(float u, float v, const point3& p) const override {
+        return tex->value(u, v, p);
+    }
+
+};
+#pragma endregion

@@ -20,6 +20,9 @@ const std::vector<scene_option> scenes {
     , {2, "Two Spheres", "two"}
     , {3, "Planet Earth", "earth"}
     , {4, "Perlin Noise spheres", "noise"}
+    , {5, "Quads", "squares"}
+    , {6, "Simple lights", "lights"}
+    , {7, "Cornell box", "box"}
 };
 
 std::string to_lower(const std::string& str) {
@@ -147,6 +150,12 @@ auto render_scene(int scene_id) -> int {
                     return earth();
                 case 4:
                     return perlin_spheres();
+                case 5:
+                    return quads();
+                case 6:
+                    return simple_light();
+                case 7: 
+                    return cornell_box();
                     
             }
             
