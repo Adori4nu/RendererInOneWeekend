@@ -368,6 +368,9 @@ auto cornell_box() -> int {
     world.add(std::make_shared<quad>(point3(555.f,555.f,555.f), vec3(-555.f,0.f,0.f), vec3(0.f,0.f,-555), white));
     world.add(std::make_shared<quad>(point3(0.f,0.f,555.f), vec3(555.f,0,0), vec3(0.f,555.f,0.f), white));
 
+    world.add(box(point3(130.f, 0.f, 65.f), point3(295.f, 165.f, 230.f), white));
+    world.add(box(point3(265.f, 0.f, 295.f), point3(430.f, 330.f, 460.f), white));
+
     camera cam;
 
     cam.aspect_ratio      = 1.0f;
