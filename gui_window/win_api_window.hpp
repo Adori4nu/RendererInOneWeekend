@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <format>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -126,7 +127,9 @@
 
     void window_thread_func(HINSTANCE h_instance, int width, int height
         , const std::vector<color>& pixels, const std::vector<int>& sample_counts
-        , std::mutex& frame_buffer_mut, std::mutex& samples_mut) {
+        , std::mutex& frame_buffer_mut, std::mutex& samples_mut
+        , std::chrono::steady_clock::time_point& render_start_time
+        , std::atomic<bool>& rendering_active, std::string& final_render_time) {
         WNDCLASS wc{0};
         wc.lpfnWndProc = wnd_proc;
         wc.hInstance = h_instance;
@@ -172,9 +175,57 @@
                 std::lock_guard<std::mutex> lock_samples(samples_mut);
                 update_preview(pixels, sample_counts, width, height);
             }
-    
-            if (g_hwnd) {
-                InvalidateRect(g_hwnd, NULL, FALSE); // Force repaint
+
+            std::string time_display{};
+            if (rendering_active) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed{ std::chrono::duration_cast<std::chrono::milliseconds>(now - render_start_time) };
+
+                int hours = elapsed.count() / 3'600'000;
+                int minutes = (elapsed.count() / 60'000) % 60;
+                int seconds = (elapsed.count() / 1'000) % 60;
+                int milliseconds = elapsed.count() % 1'000;
+
+                time_display = std::format("Render Time: {:02}h {:02}m {:02}s {:03}ms",
+                    hours, minutes, seconds, milliseconds);
+            } else {
+                time_display = final_render_time;
+            }
+
+            HDC hdc{ GetDC(g_hwnd) };
+            if (hdc) {
+                HFONT hFont = CreateFont(
+                    -12,                // Height of font (negative for character height in pixels)
+                    0,                  // Width of font (0 for default aspect ratio)
+                    0,                  // Escapement angle
+                    0,                  // Orientation angle
+                    FW_BOLD,          // Font weight (FW_NORMAL for regular)
+                    FALSE,              // Italic
+                    FALSE,              // Underline
+                    FALSE,              // Strikeout
+                    DEFAULT_CHARSET,    // Character set
+                    OUT_DEFAULT_PRECIS, // Output precision
+                    CLIP_DEFAULT_PRECIS,// Clipping precision
+                    DEFAULT_QUALITY,    // Output quality
+                    DEFAULT_PITCH | FF_DONTCARE, // Pitch and family
+                    "Cascadia Code"             // Font face name
+                );
+
+                HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+
+                HBRUSH black_brush{ CreateSolidBrush(RGB(0, 0, 0)) };
+                RECT text_rect{ 0, 0, 215, 26 };
+                FillRect(hdc, &text_rect, black_brush);
+
+                SetBkMode(hdc, TRANSPARENT); //OPAQUE is an option also
+                SetTextColor(hdc, RGB(255, 255, 255)); // White text
+                RECT rect = { 10, 3, 205, 25 }; // Position on screen
+                DrawTextA(hdc, time_display.c_str(), -1, &rect, DT_LEFT);
+
+                SelectObject(hdc, oldFont);
+                DeleteObject(hFont);
+                DeleteObject(black_brush);
+                ReleaseDC(g_hwnd, hdc);
             }
 
             // Sleep for remainder of 33ms frame time

@@ -2,13 +2,18 @@
 #include "color.hpp"
 #include "entitylist.hpp"
 #include "rtweekend.hpp"
+#include "texture.hpp"
 
 #pragma region declaration of abstract material
 class material {
 public:
     virtual ~material() = default;
 
-    virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const = 0;
+    virtual color emitted(float u, float v, const point3& p) const {
+        return color{ 0.f, 0.f, 0.f };
+    }
+
+    virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const { return false; }
 };
 
 #pragma endregion
@@ -17,14 +22,17 @@ public:
 
 class lambertian : public material {
 public:
-    lambertian(const color& a)
-        : albedo(a)
-         {};
+    
+    lambertian(const color& albedo)
+        : albedo_texture(std::make_shared<solid_color>(albedo)) {}
+    
+    lambertian(std::shared_ptr<texture> tex) : albedo_texture{ tex } {}
 
     bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
 
 private:
     color albedo{};
+    std::shared_ptr<texture> albedo_texture{};
 };
 
 #pragma endregion
@@ -36,8 +44,12 @@ bool lambertian::scatter(const ray& r_in, const hit_record& rec, vec3& attenuati
     if (scatter_direction.near_zero())
         scatter_direction = rec.normal;
 
-    scattered = ray(rec.p, scatter_direction);
-    attenuation = albedo;
+    scattered = ray(rec.p, scatter_direction, r_in.time());
+
+    if (albedo_texture)
+        attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
+    else
+        attenuation = albedo;
 
     return true;
 }
@@ -62,7 +74,7 @@ private:
 bool metalic::scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const
 {
     auto reflected{ reflect(unit_vector(r_in.direction()), rec.normal) };
-    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere());
+    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
     attenuation = albedo;
     return (dot(scattered.direction(), rec.normal) > 0);
 }
@@ -104,6 +116,43 @@ bool dielectric::scatter(const ray &r_in, const hit_record &rec, color &attenuat
     else
         direction = refract(unit_direction, rec.normal, refraction_ratio);
 
-    scattered = ray(rec.p, direction);
+    scattered = ray(rec.p, direction, r_in.time());
     return true;
 }
+
+#pragma region emissive like declaration
+class diffuse_light : public material {
+
+    std::shared_ptr<texture> tex{};
+
+public:
+
+    diffuse_light(std::shared_ptr<texture> tex) : tex{tex} {}
+    diffuse_light(const color& emit) : tex{std::make_shared<solid_color>(emit)} {}
+
+    color emitted(float u, float v, const point3& p) const override {
+        return tex->value(u, v, p);
+    }
+
+};
+#pragma endregion
+
+#pragma region isotropic decl
+class isotropic : public material {
+    
+    std::shared_ptr<texture> tex;
+
+public:
+
+    isotropic(const color& albedo) : tex{std::make_shared<solid_color>(albedo) }
+    {}
+
+    isotropic(std::shared_ptr<texture> tex) : tex{tex} {}
+
+    bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered) const override {
+        scattered = ray{ rec.p, random_unit_vector(), r_in.time() };
+        attenuation = tex->value(rec.u, rec.v, rec.p);
+        return true;
+    }
+};
+#pragma endregion

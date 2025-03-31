@@ -39,7 +39,7 @@ public:
         return vec3(random_float(), random_float(), random_float());
     }
 
-    static vec3 random(double min, double max) {
+    static vec3 random(float min, float max) {
         return vec3(random_float(min,max), random_float(min,max), random_float(min,max));
     }
 

@@ -12,7 +12,13 @@ public:
     float min, max;
 
     interval() : min(+infinity), max(-infinity) {}
+    
     interval(float _min, float _max) : min(_min), max(_max) {}
+
+    interval(const interval& a, const interval& b) {
+        min = a.min <= b.min ? a.min : b.min;
+        max = a.max >= b.max ? a.max : b.max;
+    }
 
     float size() const { return max - min; }
 
@@ -27,8 +33,8 @@ public:
     static const interval empty, universe;
 };
 
-const static interval empty   (+infinity, -infinity);
-const static interval universe(-infinity, +infinity);
+const interval interval::empty   (+infinity, -infinity);
+const interval interval::universe(-infinity, +infinity);
 #pragma endregion
 
 interval interval::expand(float delta) const { 
@@ -40,4 +46,12 @@ float interval::clamp(float x) const {
     if (x < min) return min;
     if (x > max) return max;
     return x;
+}
+
+interval operator+(const interval& ival, float displacement) {
+    return interval(ival.min + displacement, ival.max + displacement);
+}
+
+interval operator+(double displacement, const interval& ival) {
+    return ival + displacement;
 }

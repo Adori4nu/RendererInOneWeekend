@@ -1,4 +1,5 @@
 #pragma once
+#include "aabb.hpp"
 #include "entity.hpp"
 
 #include <memory>
@@ -6,6 +7,9 @@
 
 #pragma region entity_list declaration
 class entity_list : public entity {
+
+    aabb bbox;
+
 public:
     std::vector<std::shared_ptr<entity>> entities;
 
@@ -15,9 +19,14 @@ public:
 
     void clear() { entities.clear(); }
 
-    void add(std::shared_ptr<entity> ent) { entities.push_back(ent); }
+    void add(std::shared_ptr<entity> ent) { 
+        entities.push_back(ent);
+        bbox = aabb(bbox, ent->bounding_box());
+    }
 
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const override;
+
+    aabb bounding_box() const override { return bbox; }
 
 };
 #pragma endregion
