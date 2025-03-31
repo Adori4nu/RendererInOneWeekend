@@ -47,3 +47,11 @@ float interval::clamp(float x) const {
     if (x > max) return max;
     return x;
 }
+
+interval operator+(const interval& ival, float displacement) {
+    return interval(ival.min + displacement, ival.max + displacement);
+}
+
+interval operator+(double displacement, const interval& ival) {
+    return ival + displacement;
+}

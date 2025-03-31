@@ -368,8 +368,15 @@ auto cornell_box() -> int {
     world.add(std::make_shared<quad>(point3(555.f,555.f,555.f), vec3(-555.f,0.f,0.f), vec3(0.f,0.f,-555), white));
     world.add(std::make_shared<quad>(point3(0.f,0.f,555.f), vec3(555.f,0,0), vec3(0.f,555.f,0.f), white));
 
-    world.add(box(point3(130.f, 0.f, 65.f), point3(295.f, 165.f, 230.f), white));
-    world.add(box(point3(265.f, 0.f, 295.f), point3(430.f, 330.f, 460.f), white));
+    std::shared_ptr<entity> box1 = box(point3(0.f,0.f,0.f), point3(165.f,330.f,165.f), white);
+    box1 = std::make_shared<rotate_y>(box1, 15.f);
+    box1 = std::make_shared<translate>(box1, vec3(265.f,0.f,295.f));
+    world.add(box1);
+
+    std::shared_ptr<entity> box2 = box(point3(0.f,0.f,0.f), point3(165.f,165.f,165.f), white);
+    box2 = std::make_shared<rotate_y>(box2, -18.f);
+    box2 = std::make_shared<translate>(box2, vec3(130.f,0.f,65.f));
+    world.add(box2);
 
     camera cam;
 
