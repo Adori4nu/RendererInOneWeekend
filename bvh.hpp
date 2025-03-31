@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #pragma region BHV decl
-class bhv_node : public entity {
+class bvh_node : public entity {
 
     std::shared_ptr<entity> left;
     std::shared_ptr<entity> right;
@@ -38,14 +38,14 @@ class bhv_node : public entity {
 
 public:
 
-    bhv_node(entity_list list) : bhv_node(list.entities, 0, list.entities.size()) {
+    bvh_node(entity_list list) : bvh_node(list.entities, 0, list.entities.size()) {
         // There's a C++ subtlety here. This constructor (without span indices) creates an
         // implicit copy of the hittable list, which we will modify. The lifetime of the copied
         // list only extends until this constructor exits. That's OK, because we only need to
         // persist the resulting bounding volume hierarchy.
     }
 
-    bhv_node(std::vector<std::shared_ptr<entity>>& entities, size_t start, size_t end) {
+    bvh_node(std::vector<std::shared_ptr<entity>>& entities, size_t start, size_t end) {
         
         bbox = aabb::empty;
         for (size_t ent_index=start; ent_index < end; ++ent_index)
@@ -68,8 +68,8 @@ public:
             std::sort(std::begin(entities) + start, std::begin(entities) + end, comparator );
 
             auto mid{ start + object_span / 2 };
-            left = std::make_shared<bhv_node>(entities, start, mid);
-            right = std::make_shared<bhv_node>(entities, mid, end);
+            left = std::make_shared<bvh_node>(entities, start, mid);
+            right = std::make_shared<bvh_node>(entities, mid, end);
         }
 
         bbox = aabb(left->bounding_box(), right->bounding_box());

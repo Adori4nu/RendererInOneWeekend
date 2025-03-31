@@ -3,44 +3,43 @@
 #include <random>
 
 
+inline std::mt19937& get_generator() {
+    static std::mt19937 generator(std::random_device{}());
+    return generator;
+}
+
 __forceinline float degrees_to_radians(float degrees) {
-    return degrees * std::numbers::pi / 180.0;
+    return degrees * std::numbers::pi / 180.0f;
 }
 
 __forceinline int random_int() {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_int_distribution<int> distribution(0, 1);
-    return distribution(generator);
+    std::uniform_int_distribution<int> distribution(0, 1);
+    return distribution(get_generator());
 }
 
 __forceinline int random_int(int min, int max) {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_int_distribution<int> distribution(min, max);
-    return distribution(generator);
+    std::uniform_int_distribution<int> distribution(min, max);
+    return distribution(get_generator());
 }
 
 __forceinline float random_float() {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_real_distribution<float> distribution(0.f, 1.f);
-    return distribution(generator);
+    std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+    return distribution(get_generator());
 }
 
 __forceinline float random_float(float min, float max) {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_real_distribution<float> distribution(min, max);
-    return distribution(generator);
+    std::uniform_real_distribution<float> distribution(min, max);
+    return distribution(get_generator());
 }
 
 __forceinline double random_double() {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_real_distribution<double> distribution(0., 1.);
-    return distribution(generator);
+    std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    return distribution(get_generator());
 }
 
 __forceinline double random_double(double min, double max) {
-    static std::mt19937 generator(std::random_device{}());
-    static std::uniform_real_distribution<double> distribution(min, max);
-    return distribution(generator);
+    std::uniform_real_distribution<double> distribution(min, max);
+    return distribution(get_generator());
 }
 
 #include "interval.hpp"

@@ -21,6 +21,7 @@ public:
     int samples_per_pixel{ 10 };
     int max_depth{ 10 };
     color background;
+    double shuter_speed{ 1.0 }; // shuter speed for motion blur
 
     float vfov{ 90.f };
     point3 lookfrom{ point3{ 0, 0, -1 } };
@@ -198,7 +199,7 @@ inline ray camera::get_ray(int i, int j) const
 
     auto ray_origin{ ( defocus_angle <= 0 ) ? center : defocus_disk_sample() };
     auto ray_direction{ pixel_sample - ray_origin };
-    auto ray_time{ random_double(0.0, 0.16) }; // shuter speed for motion blur
+    auto ray_time{ random_double(0.0, shuter_speed) }; // shuter speed for motion blur
 
     return ray(ray_origin, ray_direction, ray_time);
 }

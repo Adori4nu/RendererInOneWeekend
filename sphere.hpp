@@ -44,12 +44,20 @@ public:
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const override;
 
     aabb bounding_box() const override { return bbox; }
+
+    point3 center_at_time(float time) const {
+        // Normalize the time to [0,1] range based on the expected time range
+        // If your shutter speed is 0.16, this would normalize times from [0,0.16] to [0,1]
+        float normalized_time = time / 0.16;
+        return center.at(normalized_time);
+    }
     
 };
 #pragma endregion
 
 bool sphere::hit(const ray& r, interval ray_t, hit_record& rec) const {
-    point3 current_center{ center.at(r.time()) };
+    // point3 current_center{ center.at(r.time()) };
+    point3 current_center{ center_at_time(r.time()) }; // normalized because of change in random number gen
     vec3 oc{ r.origin() - current_center }; // it needs to stay in this order otherwise its not rendering
     auto a{ r.direction().sqared_length() };
     float half_b{ dot(oc, r.direction()) };

@@ -14,7 +14,7 @@
 #include "color.hpp"
 #include "entitylist.hpp"
 #include "sphere.hpp"
-#include "bhv.hpp"
+#include "bvh.hpp"
 #include "texture.hpp"
 #include "quad.hpp"
 #include "constant_medium.hpp"
@@ -109,7 +109,7 @@ auto bouncing_spheres() -> int
         }
     }
 
-    world = entity_list(std::make_shared<bhv_node>(world));
+    world = entity_list(std::make_shared<bvh_node>(world));
 
     camera cam;
 
@@ -414,10 +414,10 @@ auto cornell_box() -> int {
 auto cornell_smoke() -> int {
     entity_list world;
 
-    auto red   = std::make_shared<lambertian>(color(.65, .05, .05));
-    auto white = std::make_shared<lambertian>(color(.73, .73, .73));
-    auto green = std::make_shared<lambertian>(color(.12, .45, .15));
-    auto light = std::make_shared<diffuse_light>(color(7, 7, 7));
+    auto red   = std::make_shared<lambertian>(color(.65f, .05f, .05f));
+    auto white = std::make_shared<lambertian>(color(.73f, .73f, .73f));
+    auto green = std::make_shared<lambertian>(color(.12f, .45f, .15f));
+    auto light = std::make_shared<diffuse_light>(color(7.f, 7.f, 7.f));
 
     world.add(std::make_shared<quad>(point3(555,0,0), vec3(0,555,0), vec3(0,0,555), green));
     world.add(std::make_shared<quad>(point3(0,0,0), vec3(0,555,0), vec3(0,0,555), red));
@@ -434,23 +434,117 @@ auto cornell_smoke() -> int {
     box2 = std::make_shared<rotate_y>(box2, -18);
     box2 = std::make_shared<translate>(box2, vec3(130,0,65));
 
-    world.add(std::make_shared<constant_medium>(box1, 0.01, color(0,0,0)));
-    world.add(std::make_shared<constant_medium>(box2, 0.01, color(1,1,1)));
+    world.add(std::make_shared<constant_medium>(box1, 0.01f, color(0,0,0)));
+    world.add(std::make_shared<constant_medium>(box2, 0.01f, color(1,1,1)));
 
     camera cam;
 
-    cam.aspect_ratio      = 1.0;
+    cam.aspect_ratio      = 1.0f;
     cam.image_width       = 600;
     cam.samples_per_pixel = 200;
     cam.max_depth         = 50;
-    cam.background        = color(0,0,0);
+    cam.background        = color(0.f,0.f,0.f);
 
-    cam.vfov     = 40;
-    cam.lookfrom = point3(278, 278, -800);
-    cam.lookat   = point3(278, 278, 0);
-    cam.vup      = vec3(0,1,0);
+    cam.vfov     = 40.f;
+    cam.lookfrom = point3(278.f, 278.f, -800.f);
+    cam.lookat   = point3(278.f, 278.f, 0.f);
+    cam.vup      = vec3(0.f,1.f,0.f);
 
-    cam.defocus_angle = 0;
+    cam.defocus_angle = 0.f;
+
+    try {
+        cam.render(world);
+    } catch (const std::exception& e) {
+        std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    } catch (...) {
+        std::cerr << "\033[1;31mUnknown error occurred!\033[0m" << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
+        return 1;
+    }
+
+    return 0;
+}
+
+auto final_scene(int image_width, int samples_per_pixel, int max_depth) -> int {
+    entity_list boxes1;
+    auto ground = std::make_shared<lambertian>(color(0.48f, 0.83f, 0.53f));
+
+    int boxes_per_side = 100;
+    for (int i = 0; i < boxes_per_side; i++) {
+        for (int j = 0; j < boxes_per_side; j++) {
+            float w = 100.0f;
+            float x0 = -1'000.0f + i*w;
+            float z0 = -1'000.0f + j*w;
+            float y0 = 0.0f;
+            float x1 = x0 + w;
+            float y1 = random_float(1.f,101.f);
+            float z1 = z0 + w;
+
+            boxes1.add(box(point3(x0,y0,z0), point3(x1,y1,z1), ground));
+        }
+    }
+
+    entity_list world;
+
+    world.add(std::make_shared<bvh_node>(boxes1));
+
+    auto light = std::make_shared<diffuse_light>(color(7.f, 7.f, 7.f));
+    world.add(std::make_shared<quad>(point3(123.f,554.f,147.f), vec3(300.f,0.f,0.f), vec3(0.f,0.f,265.f), light));
+
+    auto center1 = point3(400.f, 400.f, 200.f);
+    auto center2 = center1 + vec3(30.f,0.f,0.f);
+    auto sphere_material = std::make_shared<lambertian>(color(0.7f, 0.3f, 0.1f));
+    world.add(std::make_shared<sphere>(center1, center2, 50.f, sphere_material));
+
+    world.add(std::make_shared<sphere>(point3(260.f, 150.f, 45.f), 50.f, std::make_shared<dielectric>(1.5f)));
+    world.add(std::make_shared<sphere>(
+        point3(0, 150, 145), 50, std::make_shared<metalic>(color(0.8f, 0.8f, 0.9f), 1.0f)
+    ));
+
+    auto boundary = std::make_shared<sphere>(point3(360.f,150.f,145.f), 70.f, std::make_shared<dielectric>(1.5f));
+    world.add(boundary);
+    world.add(std::make_shared<constant_medium>(boundary, 0.2f, color(0.2f, 0.4f, 0.9f)));
+    boundary = std::make_shared<sphere>(point3(0,0,0), 5000, std::make_shared<dielectric>(1.5f));
+    world.add(std::make_shared<constant_medium>(boundary, .0001f, color(1,1,1)));
+
+    auto emat = std::make_shared<lambertian>(std::make_shared<image_texture>("earthmap.jpg"));
+    world.add(std::make_shared<sphere>(point3(400,200,400), 100, emat));
+    auto pertext = std::make_shared<noise_texture>(0.2f);
+    world.add(std::make_shared<sphere>(point3(220,280,300), 80, std::make_shared<lambertian>(pertext)));
+
+    entity_list boxes2;
+    auto white = std::make_shared<lambertian>(color(.73f, .73f, .73f));
+    int ns = 1000;
+    for (int j = 0; j < ns; j++) {
+        boxes2.add(std::make_shared<sphere>(point3::random(0,165), 10, white));
+    }
+
+    world.add(std::make_shared<translate>(
+        std::make_shared<rotate_y>(
+            std::make_shared<bvh_node>(boxes2), 15),
+            vec3(-100,270,395)
+        )
+    );
+
+    camera cam;
+
+    cam.aspect_ratio      = 1.0f;
+    cam.image_width       = image_width;
+    cam.samples_per_pixel = samples_per_pixel;
+    cam.max_depth         = max_depth;
+    cam.background        = color(0.f,0.,0.f);
+    cam.shuter_speed      = .16;
+
+    cam.vfov     = 40.f;
+    cam.lookfrom = point3(478.f, 278.f, -600.f);
+    cam.lookat   = point3(278.f, 278.f, 0.f);
+    cam.vup      = vec3(0.f,1.f,0.f);
+
+    cam.defocus_angle = 0.f;
 
     try {
         cam.render(world);
