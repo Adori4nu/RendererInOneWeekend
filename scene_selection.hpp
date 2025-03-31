@@ -23,6 +23,7 @@ const std::vector<scene_option> scenes {
     , {5, "Quads", "squares"}
     , {6, "Simple lights", "lights"}
     , {7, "Cornell box", "box"}
+    , {8, "Cornell smoke", "smoke"}
 };
 
 std::string to_lower(const std::string& str) {
@@ -156,6 +157,8 @@ auto render_scene(int scene_id) -> int {
                     return simple_light();
                 case 7: 
                     return cornell_box();
+                case 8:
+                    return cornell_smoke();
                     
             }
             
