@@ -419,23 +419,23 @@ auto cornell_smoke() -> int {
     auto green = std::make_shared<lambertian>(color(.12f, .45f, .15f));
     auto light = std::make_shared<diffuse_light>(color(7.f, 7.f, 7.f));
 
-    world.add(std::make_shared<quad>(point3(555,0,0), vec3(0,555,0), vec3(0,0,555), green));
-    world.add(std::make_shared<quad>(point3(0,0,0), vec3(0,555,0), vec3(0,0,555), red));
-    world.add(std::make_shared<quad>(point3(113,554,127), vec3(330,0,0), vec3(0,0,305), light));
-    world.add(std::make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white));
-    world.add(std::make_shared<quad>(point3(0,0,0), vec3(555,0,0), vec3(0,0,555), white));
-    world.add(std::make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,555,0), white));
+    world.add(std::make_shared<quad>(point3(555.f,0.f,0.f), vec3(0.f,555.f,0.f), vec3(0.f,0.f,555.f), green));
+    world.add(std::make_shared<quad>(point3(0.f,0.f,0.f), vec3(0.f,555.f,0.f), vec3(0.f,0.f,555.f), red));
+    world.add(std::make_shared<quad>(point3(113.f,554.f,127.f), vec3(330.f,0.f,0.f), vec3(0.f,0.f,305.f), light));
+    world.add(std::make_shared<quad>(point3(0.f,555.f,0.f), vec3(555.f,0.f,0.f), vec3(0.f,0.f,555.f), white));
+    world.add(std::make_shared<quad>(point3(0.f,0.f,0.f), vec3(555.f,0.f,0.f), vec3(0.f,0.f,555.f), white));
+    world.add(std::make_shared<quad>(point3(0.f,0.f,555.f), vec3(555.f,0.f,0.f), vec3(0.f,555.f,0.f), white));
 
-    std::shared_ptr<entity> box1 = box(point3(0,0,0), point3(165,330,165), white);
-    box1 = std::make_shared<rotate_y>(box1, 15);
-    box1 = std::make_shared<translate>(box1, vec3(265,0,295));
+    std::shared_ptr<entity> box1 = box(point3(0.f,0.f,0.f), point3(165.f,330.f,165.f), white);
+    box1 = std::make_shared<rotate_y>(box1, 15.f);
+    box1 = std::make_shared<translate>(box1, vec3(265.f,0.f,295.f));
 
-    std::shared_ptr<entity> box2 = box(point3(0,0,0), point3(165,165,165), white);
-    box2 = std::make_shared<rotate_y>(box2, -18);
-    box2 = std::make_shared<translate>(box2, vec3(130,0,65));
+    std::shared_ptr<entity> box2 = box(point3(0.f,0.f,0.f), point3(165.f,165.f,165.f), white);
+    box2 = std::make_shared<rotate_y>(box2, -18.f);
+    box2 = std::make_shared<translate>(box2, vec3(130.f,0.f,65.f));
 
-    world.add(std::make_shared<constant_medium>(box1, 0.01f, color(0,0,0)));
-    world.add(std::make_shared<constant_medium>(box2, 0.01f, color(1,1,1)));
+    world.add(std::make_shared<constant_medium>(box1, 0.01f, color(0.f,0.f,0.f)));
+    world.add(std::make_shared<constant_medium>(box2, 0.01f, color(1.f,1.f,1.f)));
 
     camera cam;
 
@@ -502,31 +502,31 @@ auto final_scene(int image_width, int samples_per_pixel, int max_depth) -> int {
 
     world.add(std::make_shared<sphere>(point3(260.f, 150.f, 45.f), 50.f, std::make_shared<dielectric>(1.5f)));
     world.add(std::make_shared<sphere>(
-        point3(0, 150, 145), 50, std::make_shared<metalic>(color(0.8f, 0.8f, 0.9f), 1.0f)
+        point3(0.f, 150.f, 145.f), 50.f, std::make_shared<metalic>(color(0.8f, 0.8f, 0.9f), 1.0f)
     ));
 
     auto boundary = std::make_shared<sphere>(point3(360.f,150.f,145.f), 70.f, std::make_shared<dielectric>(1.5f));
     world.add(boundary);
     world.add(std::make_shared<constant_medium>(boundary, 0.2f, color(0.2f, 0.4f, 0.9f)));
-    boundary = std::make_shared<sphere>(point3(0,0,0), 5000, std::make_shared<dielectric>(1.5f));
-    world.add(std::make_shared<constant_medium>(boundary, .0001f, color(1,1,1)));
+    boundary = std::make_shared<sphere>(point3(0.f,0.f,0.f), 5000.f, std::make_shared<dielectric>(1.5f));
+    world.add(std::make_shared<constant_medium>(boundary, .0001f, color(1.f,1.f,1.f)));
 
     auto emat = std::make_shared<lambertian>(std::make_shared<image_texture>("earthmap.jpg"));
-    world.add(std::make_shared<sphere>(point3(400,200,400), 100, emat));
+    world.add(std::make_shared<sphere>(point3(400.f, 200.f, 400.f), 100.f, emat));
     auto pertext = std::make_shared<noise_texture>(0.2f);
-    world.add(std::make_shared<sphere>(point3(220,280,300), 80, std::make_shared<lambertian>(pertext)));
+    world.add(std::make_shared<sphere>(point3(220.f, 280.f ,300.f), 80.f, std::make_shared<lambertian>(pertext)));
 
     entity_list boxes2;
     auto white = std::make_shared<lambertian>(color(.73f, .73f, .73f));
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
-        boxes2.add(std::make_shared<sphere>(point3::random(0,165), 10, white));
+        boxes2.add(std::make_shared<sphere>(point3::random(0.f, 165.f), 10.f, white));
     }
 
     world.add(std::make_shared<translate>(
         std::make_shared<rotate_y>(
-            std::make_shared<bvh_node>(boxes2), 15),
-            vec3(-100,270,395)
+            std::make_shared<bvh_node>(boxes2), 15.f),
+            vec3(-100.f, 270.f, 395.f)
         )
     );
 
