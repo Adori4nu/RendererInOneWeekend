@@ -82,18 +82,20 @@ public:
                     // Render pixels in tile
                     // Edited to sample every pixel in tile once and again
                     // until rendered not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
-                    for (int sample{ 0 }; sample < samples_per_pixel; ++sample) {
-                        for (int y{j}; y < y_end; ++y) {
-                            for (int x{i}; x < x_end; ++x) {
-                                
-                                ray r{ get_ray(x, y) };
-                                color sample_color = ray_color(r, max_depth, world);
-                                
-                                {
-                                    std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
-                                    std::lock_guard<std::mutex> lock_samples(samples_mutex);
-                                    frame_buffer[y * image_width + x] += sample_color;
-                                    current_samples[y * image_width + x] += 1;
+                    for (int sample_j{ 0 }; sample_j < sqrt_samples_per_pixel; ++sample_j) {
+                        for (int sample_i{ 0 }; sample_i < sqrt_samples_per_pixel; ++sample_i) {
+                            for (int y{j}; y < y_end; ++y) {
+                                for (int x{i}; x < x_end; ++x) {
+                                    
+                                    ray r{ get_ray(x, y, sample_i, sample_j) };
+                                    color sample_color = ray_color(r, max_depth, world);
+                                    
+                                    {
+                                        std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
+                                        std::lock_guard<std::mutex> lock_samples(samples_mutex);
+                                        frame_buffer[y * image_width + x] += sample_color;
+                                        current_samples[y * image_width + x] += 1;
+                                    }
                                 }
                             }
                         }
@@ -146,6 +148,9 @@ public:
 private:
     int image_height{};
     point3 center{};
+    float pixel_samples_scale{};
+    int sqrt_samples_per_pixel{};
+    float recip_sqrt_samples_per_pixel{};
     point3 pixel00_loc{};
     vec3 pixel_delta_u{};
     vec3 pixel_delta_v{};
@@ -154,8 +159,9 @@ private:
     vec3 defocus_disk_v{};
 
     void initialize();
-    ray get_ray(int i, int j) const;
+    ray get_ray(int i, int j, int sample_i, int sample_j) const;
     vec3 pixel_sample_square() const;
+    vec3 sample_square_stratified(int sample_i, int sample_j) const;
     vec3 pixel_sample_disk(float radius) const;
     point3 defocus_disk_sample() const;
     color ray_color(const ray& r, int depth, const entity& world) const;
@@ -165,6 +171,10 @@ private:
 inline void camera::initialize() {
     image_height = static_cast<int>(image_width / aspect_ratio);
     image_height = ( image_height < 1 ) ? 1 : image_height;
+
+    sqrt_samples_per_pixel = static_cast<int>( std::sqrt( samples_per_pixel ) );
+    pixel_samples_scale = 1.0f / static_cast<float>( sqrt_samples_per_pixel );
+    recip_sqrt_samples_per_pixel = 1.0f / static_cast<float>( sqrt_samples_per_pixel );
 
     center = lookfrom;
 
@@ -192,8 +202,9 @@ inline void camera::initialize() {
 
 }
 
-inline ray camera::get_ray(int i, int j) const
+inline ray camera::get_ray(int i, int j, int sample_i, int sample_j) const
 {
+    auto offset{ sample_square_stratified(sample_i, sample_j) };
     auto pixel_center{ pixel00_loc + ( i * pixel_delta_u ) + ( j * pixel_delta_v ) };
     auto pixel_sample{ pixel_center + pixel_sample_square() };
 
@@ -209,6 +220,13 @@ inline vec3 camera::pixel_sample_square() const
     auto px{ -0.5f + random_float() };
     auto py{ -0.5f + random_float() };
     return ( px * pixel_delta_u ) + ( py * pixel_delta_v );
+}
+
+inline vec3 camera::sample_square_stratified(int sample_i, int sample_j) const
+{
+    auto px{ ( sample_i + random_float() ) * recip_sqrt_samples_per_pixel - 0.5f };
+    auto py{ ( sample_j + random_float() ) * recip_sqrt_samples_per_pixel - 0.5f };
+    return vec3( px, py, 0.f );
 }
 
 inline vec3 camera::pixel_sample_disk(float radius) const
