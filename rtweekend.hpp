@@ -2,6 +2,8 @@
 #include <numbers>
 #include <random>
 
+// Because as a dev I'm lazy and don't want to type std::numbers::pi_v<float> every time i want to use pi as a float
+constexpr const float pi{ std::numbers::pi_v<float> };
 
 inline std::mt19937& get_generator() {
     static std::mt19937 generator(std::random_device{}());
@@ -9,7 +11,7 @@ inline std::mt19937& get_generator() {
 }
 
 __forceinline float degrees_to_radians(float degrees) {
-    return degrees * std::numbers::pi / 180.0f;
+    return degrees * pi / 180.0f;
 }
 
 __forceinline int random_int() {
