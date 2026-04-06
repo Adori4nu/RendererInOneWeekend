@@ -14,32 +14,17 @@ __forceinline float degrees_to_radians(float degrees) {
     return degrees * pi / 180.0f;
 }
 
-__forceinline int random_int() {
-    std::uniform_int_distribution<int> distribution(0, 1);
-    return distribution(get_generator());
-}
-
-__forceinline int random_int(int min, int max) {
+__forceinline int random_int(int min = 0, int max = 1) {
     std::uniform_int_distribution<int> distribution(min, max);
     return distribution(get_generator());
 }
 
-__forceinline float random_float() {
-    std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
-    return distribution(get_generator());
-}
-
-__forceinline float random_float(float min, float max) {
+__forceinline float random_float(float min = 0.0f, float max = 1.0f) {
     std::uniform_real_distribution<float> distribution(min, max);
     return distribution(get_generator());
 }
 
-__forceinline double random_double() {
-    std::uniform_real_distribution<double> distribution(0.0, 1.0);
-    return distribution(get_generator());
-}
-
-__forceinline double random_double(double min, double max) {
+__forceinline double random_double(double min = 0.0, double max = 1.0) {
     std::uniform_real_distribution<double> distribution(min, max);
     return distribution(get_generator());
 }

@@ -19,7 +19,7 @@ bool compare_by_x(const sample& a, const sample& b)
 int main()
 {
     std::vector<sample> samples;
-    constexpr unsigned int N = 1'000;
+    constexpr unsigned int N{ 1'000 };
     samples.reserve(N);
     float sum{ 0.0f };
 
