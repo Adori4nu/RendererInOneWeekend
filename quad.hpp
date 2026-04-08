@@ -13,6 +13,7 @@ class quad : public entity {
     aabb bbox;
     vec3 normal;
     float D;
+    float area;
 
 public:
 
@@ -22,6 +23,8 @@ public:
         normal = unit_vector(n);
         D = dot(normal, Q);
         w = n / dot(n, n);
+
+        area = n.length();
         
         set_bounding_box();
     }
@@ -75,6 +78,22 @@ public:
         rec.u = a;
         rec.v = b;
         return true;
+    }
+
+    float pdf_value(const point3& origin, const vec3& direction) const override {
+        hit_record rec{};
+        if (!this->hit(ray(origin, direction), interval(0.001f, infinity), rec))
+            return 0.f;
+
+        float distance_squared{ rec.t * rec.t * direction.squared_length() };
+        float cosine{ std::fabs(dot(direction, rec.normal) / direction.length()) };
+
+        return distance_squared / (cosine * area);
+    }
+
+    vec3 random(const point3& origin) const override {
+        auto p{ Q + (random_float() * u) + (random_float() * v) };
+        return p - origin;
     }
 };
 #pragma endregion

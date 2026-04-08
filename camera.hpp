@@ -1,9 +1,11 @@
 #pragma once
+#include "ray.hpp"
 #include "rtweekend.hpp"
 
 #include "color.hpp"
 #include "entity.hpp"
 #include "interval.hpp"
+#include "pdf.hpp"
 #include "material.hpp"
 
 #include "threading/thread_pool.hpp"
@@ -12,6 +14,7 @@
 #include <chrono>
 #include <format>
 #include <iostream>
+#include <memory>
 
 #pragma region camera class declaration
 class camera {
@@ -36,7 +39,7 @@ public:
     vec3 vertical{};
     vec3 origin{};
 
-    void render(const entity& world) {
+    void render(const entity& world, const entity& lights) {
         initialize();
 
         std::vector<color> frame_buffer(image_width * image_height, color(0, 0, 0));
@@ -72,7 +75,7 @@ public:
 
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
-                auto future = thread_pool.submit([this, &world, &frame_buffer, &frame_buffer_mutex
+                auto future = thread_pool.submit([this, &world, &frame_buffer, &lights, &frame_buffer_mutex
                     , i, j, tile_size, &completed_tiles
                     , total_tiles, &current_samples, &samples_mutex]() {
                     
@@ -81,19 +84,21 @@ public:
 
                     // Render pixels in tile
                     // Edited to sample every pixel in tile once and again
-                    // until rendered not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
-                    for (int sample{ 0 }; sample < samples_per_pixel; ++sample) {
-                        for (int y{j}; y < y_end; ++y) {
-                            for (int x{i}; x < x_end; ++x) {
-                                
-                                ray r{ get_ray(x, y) };
-                                color sample_color = ray_color(r, max_depth, world);
-                                
-                                {
-                                    std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
-                                    std::lock_guard<std::mutex> lock_samples(samples_mutex);
-                                    frame_buffer[y * image_width + x] += sample_color;
-                                    current_samples[y * image_width + x] += 1;
+                    // until rendered; not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
+                    for (int sample_j{ 0 }; sample_j < sqrt_samples_per_pixel; ++sample_j) {
+                        for (int sample_i{ 0 }; sample_i < sqrt_samples_per_pixel; ++sample_i) {
+                            for (int y{j}; y < y_end; ++y) {
+                                for (int x{i}; x < x_end; ++x) {
+                                    
+                                    ray r{ get_ray(x, y, sample_i, sample_j) };
+                                    color sample_color = ray_color(r, max_depth, world, lights);
+                                    
+                                    {
+                                        std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
+                                        std::lock_guard<std::mutex> lock_samples(samples_mutex);
+                                        frame_buffer[y * image_width + x] += sample_color;
+                                        current_samples[y * image_width + x] += 1;
+                                    }
                                 }
                             }
                         }
@@ -146,6 +151,9 @@ public:
 private:
     int image_height{};
     point3 center{};
+    float pixel_samples_scale{};
+    int sqrt_samples_per_pixel{};
+    float recip_sqrt_samples_per_pixel{};
     point3 pixel00_loc{};
     vec3 pixel_delta_u{};
     vec3 pixel_delta_v{};
@@ -154,17 +162,22 @@ private:
     vec3 defocus_disk_v{};
 
     void initialize();
-    ray get_ray(int i, int j) const;
+    ray get_ray(int i, int j, int sample_i, int sample_j) const;
     vec3 pixel_sample_square() const;
+    vec3 sample_square_stratified(int sample_i, int sample_j) const;
     vec3 pixel_sample_disk(float radius) const;
     point3 defocus_disk_sample() const;
-    color ray_color(const ray& r, int depth, const entity& world) const;
+    color ray_color(const ray& r, int depth, const entity& world, const entity& lights) const;
 };
 #pragma endregion
 
 inline void camera::initialize() {
     image_height = static_cast<int>(image_width / aspect_ratio);
     image_height = ( image_height < 1 ) ? 1 : image_height;
+
+    sqrt_samples_per_pixel = static_cast<int>( std::sqrt( samples_per_pixel ) );
+    pixel_samples_scale = 1.0f / static_cast<float>( sqrt_samples_per_pixel );
+    recip_sqrt_samples_per_pixel = 1.0f / static_cast<float>( sqrt_samples_per_pixel );
 
     center = lookfrom;
 
@@ -192,8 +205,9 @@ inline void camera::initialize() {
 
 }
 
-inline ray camera::get_ray(int i, int j) const
+inline ray camera::get_ray(int i, int j, int sample_i, int sample_j) const
 {
+    auto offset{ sample_square_stratified(sample_i, sample_j) };
     auto pixel_center{ pixel00_loc + ( i * pixel_delta_u ) + ( j * pixel_delta_v ) };
     auto pixel_sample{ pixel_center + pixel_sample_square() };
 
@@ -211,6 +225,13 @@ inline vec3 camera::pixel_sample_square() const
     return ( px * pixel_delta_u ) + ( py * pixel_delta_v );
 }
 
+inline vec3 camera::sample_square_stratified(int sample_i, int sample_j) const
+{
+    auto px{ ( sample_i + random_float() ) * recip_sqrt_samples_per_pixel - 0.5f };
+    auto py{ ( sample_j + random_float() ) * recip_sqrt_samples_per_pixel - 0.5f };
+    return vec3( px, py, 0.f );
+}
+
 inline vec3 camera::pixel_sample_disk(float radius) const
 {
     auto p{ radius * random_in_unit_disk() };
@@ -223,7 +244,7 @@ inline point3 camera::defocus_disk_sample() const
     return center + ( p[0] * defocus_disk_u ) + ( p[1] * defocus_disk_v );
 }
 
-inline color camera::ray_color(const ray &r, int depth, const entity &world) const
+inline color camera::ray_color(const ray &r, int depth, const entity &world, const entity& lights) const
 {
     if (depth <= 0)
         return color{ 0.f, 0.f, 0.f };
@@ -232,15 +253,26 @@ inline color camera::ray_color(const ray &r, int depth, const entity &world) con
 
     if (!world.hit(r, interval(0.001f, infinity), rec))
         return background;
-    
-    ray scattered{};
-    color attenuation{};
-    color color_from_emission{ rec.mat->emitted(rec.u, rec.v, rec.p) };
 
-    if (!rec.mat->scatter( r, rec, attenuation, scattered ))
-        return color_from_emission;    
-    
-    color color_from_scatter{  attenuation * ray_color(scattered, depth - 1, world) };
+    scatter_record srec{};
+    color color_from_emission{ rec.mat->emitted(r, rec,rec.u, rec.v, rec.p) };
+
+    if (!rec.mat->scatter( r, rec, srec))
+        return color_from_emission;
+
+    if (srec.skip_pdf)
+        return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights);
+
+    auto light_ptr{ std::make_shared<entity_pdf>(lights, rec.p) };
+    mixture_pdf p{ light_ptr, srec.pdf_ptr };
+
+    ray scattered{ ray(rec.p, p.generate(), r.time()) };
+    auto pdf_value{ p.value(scattered.direction()) };
+
+    auto scattering_pdf{ rec.mat->scattering_pdf( r, rec, scattered ) };
+
+    color sample_color{ ray_color(scattered, depth - 1, world, lights) };
+    color color_from_scatter{ (srec.attenuation * scattering_pdf * sample_color) / pdf_value };
 
     return color_from_emission + color_from_scatter;
 }

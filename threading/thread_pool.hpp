@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -249,6 +250,7 @@ public:
     thread_pool_ws() : done{false}, joiner{threads}
     {
         uint64_t const thread_count{ std::max(std::thread::hardware_concurrency() - 2u, 1u) };
+        std::clog << "\033[1;92mUsing " << thread_count << " threads for rendering.\033[0m\n";
         try
         {
             for (size_t i {0}; i < thread_count; ++i)

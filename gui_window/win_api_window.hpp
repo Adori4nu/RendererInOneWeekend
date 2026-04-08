@@ -5,6 +5,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #include "../color.hpp"
 
