@@ -9,6 +9,7 @@
 class pdf
 {
 public:
+
     virtual ~pdf() = default;
 
     virtual float value(const vec3& direction) const = 0;
@@ -20,6 +21,8 @@ public:
 class sphere_pdf : public pdf
 {
 public:
+    
+    sphere_pdf() {}
 
     float value(const vec3& direction) const override { return 1 / (4 * pi); }
     vec3 generate() const override { return random_unit_vector(); }
@@ -57,5 +60,29 @@ public:
 
     float value(const vec3& direction) const override { return objects.pdf_value(origin, direction); }
     vec3 generate() const override { return objects.random(origin); }
+};
+#pragma endregion
+
+#pragma region MIXTURE PDF declaration
+class mixture_pdf : public pdf
+{
+    std::array<std::shared_ptr<pdf>, 2> pdfs;
+public:
+
+    mixture_pdf(std::shared_ptr<pdf> p0, std::shared_ptr<pdf> p1) {
+        pdfs[0] = p0;
+        pdfs[1] = p1;
+    }
+
+    float value(const vec3& direction) const override {
+        return 0.5f * pdfs[0]->value(direction) + 0.5f * pdfs[1]->value(direction);
+    }
+
+    vec3 generate() const override {
+        if (random_float() < 0.5f)
+            return pdfs[0]->generate();
+        else
+            return pdfs[1]->generate();
+    }
 };
 #pragma endregion

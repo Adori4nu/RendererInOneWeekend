@@ -12,6 +12,7 @@
 // iclude order matters 💩
 #include "camera.hpp"
 #include "color.hpp"
+#include "entity.hpp"
 #include "entitylist.hpp"
 #include "sphere.hpp"
 #include "bvh.hpp"
@@ -385,27 +386,33 @@ auto cornell_box(int _samples_per_pixel = 200) -> int {
     auto white = std::make_shared<lambertian>(color(.73f, .73f, .73f));
     auto green = std::make_shared<lambertian>(color(.12f, .45f, .15f));
     auto light = std::make_shared<diffuse_light>(color(15.f, 15.f, 15.f));
+    auto aluminum = std::make_shared<metalic>(color(0.8f, 0.85f, 0.88f), 0.0f);
+    auto glass = std::make_shared<dielectric>(1.5f);
+    auto empty_material{ std::make_shared<material>() };
 
     world.add(std::make_shared<quad>(point3(555.f,0.f,0.f), vec3(0.f,555.f,0.f), vec3(0.f,0.f,555.f), green));
     world.add(std::make_shared<quad>(point3(0.f,0.f,0.f), vec3(0.f,555.f,0.f), vec3(0.f,0.f,555.f), red));
-    world.add(std::make_shared<quad>(point3(343.f, 554.f, 332.f), vec3(-130.f,0.f,0.f), vec3(0.f,0.f,-105.f), light));
     world.add(std::make_shared<quad>(point3(0.f,0.f,0.f), vec3(555.f,0.f,0.f), vec3(0.f,0.f,555.f), white));
     world.add(std::make_shared<quad>(point3(555.f,555.f,555.f), vec3(-555.f,0.f,0.f), vec3(0.f,0.f,-555), white));
     world.add(std::make_shared<quad>(point3(0.f,0.f,555.f), vec3(555.f,0,0), vec3(0.f,555.f,0.f), white));
-
+    
+    // Light
+    world.add(std::make_shared<quad>(point3(213.f, 554.f, 227.f), vec3(130.f,0.f,0.f), vec3(0.f,0.f,105.f), light));
+    
     std::shared_ptr<entity> box1 = box(point3(0.f,0.f,0.f), point3(165.f,330.f,165.f), white);
     box1 = std::make_shared<rotate_y>(box1, 15.f);
     box1 = std::make_shared<translate>(box1, vec3(265.f,0.f,295.f));
     world.add(box1);
-
-    std::shared_ptr<entity> box2 = box(point3(0.f,0.f,0.f), point3(165.f,165.f,165.f), white);
-    box2 = std::make_shared<rotate_y>(box2, -18.f);
-    box2 = std::make_shared<translate>(box2, vec3(130.f,0.f,65.f));
-    world.add(box2);
-
-    // Light Sources
-    auto empty_material{ std::make_shared<material>() };
-    quad lightsource(point3(343.f, 554.f, 332.f), vec3(-130.f,0.f,0.f), vec3(0.f,0.f,-105.f), empty_material);
+    
+    // std::shared_ptr<entity> box2 = box(point3(0.f,0.f,0.f), point3(165.f,165.f,165.f), white);
+    // box2 = std::make_shared<rotate_y>(box2, -18.f);
+    // box2 = std::make_shared<translate>(box2, vec3(130.f,0.f,65.f));
+    // world.add(box2);
+    world.add(std::make_shared<sphere>(point3(190.f, 90.f, 190.f), 90.f, glass));
+    
+    entity_list lights;
+    lights.add(std::make_shared<quad>(point3(343.f, 554.f, 332.f), vec3(-130.f,0.f,0.f), vec3(0.f,0.f,-105.f), empty_material));
+    lights.add(std::make_shared<sphere>(point3(190.f, 90.f, 190.f), 90.f, empty_material));
 
     camera cam;
 
@@ -423,7 +430,7 @@ auto cornell_box(int _samples_per_pixel = 200) -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world, lightsource);
+        cam.render(world, lights);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;

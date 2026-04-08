@@ -1,4 +1,5 @@
 #pragma once
+#include "ray.hpp"
 #include "rtweekend.hpp"
 
 #include "color.hpp"
@@ -13,6 +14,7 @@
 #include <chrono>
 #include <format>
 #include <iostream>
+#include <memory>
 
 #pragma region camera class declaration
 class camera {
@@ -251,24 +253,26 @@ inline color camera::ray_color(const ray &r, int depth, const entity &world, con
 
     if (!world.hit(r, interval(0.001f, infinity), rec))
         return background;
-    
-    ray scattered{};
-    color attenuation{};
-    float pdf_value{};
+
+    scatter_record srec{};
     color color_from_emission{ rec.mat->emitted(r, rec,rec.u, rec.v, rec.p) };
 
-    if (!rec.mat->scatter( r, rec, attenuation, scattered,  pdf_value))
-        return color_from_emission;    
+    if (!rec.mat->scatter( r, rec, srec))
+        return color_from_emission;
 
-    entity_pdf lights_pdf(lights, rec.p);
-    scattered = ray(rec.p, lights_pdf.generate(), r.time());
-    pdf_value = lights_pdf.value(scattered.direction());
+    if (srec.skip_pdf)
+        return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights);
 
-    // cosine_pdf surface_pdf(rec.normal);
+    auto light_ptr{ std::make_shared<entity_pdf>(lights, rec.p) };
+    mixture_pdf p{ light_ptr, srec.pdf_ptr };
+
+    ray scattered{ ray(rec.p, p.generate(), r.time()) };
+    auto pdf_value{ p.value(scattered.direction()) };
+
     auto scattering_pdf{ rec.mat->scattering_pdf( r, rec, scattered ) };
 
     color sample_color{ ray_color(scattered, depth - 1, world, lights) };
-    color color_from_scatter{ (attenuation * scattering_pdf * sample_color) / pdf_value };
+    color color_from_scatter{ (srec.attenuation * scattering_pdf * sample_color) / pdf_value };
 
     return color_from_emission + color_from_scatter;
 }

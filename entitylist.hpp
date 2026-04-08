@@ -1,6 +1,7 @@
 #pragma once
 #include "aabb.hpp"
 #include "entity.hpp"
+#include "rtweekend.hpp"
 
 #include <memory>
 #include <vector>
@@ -27,6 +28,21 @@ public:
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const override;
 
     aabb bounding_box() const override { return bbox; }
+
+    float pdf_value(const point3& origin, const vec3& direction) const override {
+        float weight{ 1.f / entities.size() };
+        float sum{ 0.f };
+
+        for (const auto& ent : entities)
+            sum += weight * ent->pdf_value(origin, direction);
+
+        return sum;
+    }
+
+    vec3 random(const point3& origin) const override {
+        int index{ random_int(0, static_cast<int>(entities.size() - 1)) };
+        return entities[index]->random(origin);
+    }
 
 };
 #pragma endregion

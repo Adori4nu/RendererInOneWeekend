@@ -1,11 +1,20 @@
 #pragma once
 #include "color.hpp"
 #include "entitylist.hpp"
-#include "onb.hpp"
+#include "pdf.hpp"
 #include "rtweekend.hpp"
 #include "texture.hpp"
 #include "vec3.hpp"
+#include <memory>
 
+#pragma region SCATER RECORD
+struct scatter_record {
+    color attenuation{};
+    std::shared_ptr<pdf> pdf_ptr;
+    bool skip_pdf{};
+    ray skip_pdf_ray{};
+};
+#pragma endregion
 #pragma region ABSTRACT material declaration
 class material {
 public:
@@ -15,9 +24,7 @@ public:
         return color{ 0.f, 0.f, 0.f };
     }
 
-    virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const { return false; }
-
-    virtual bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const { return false; }
+    virtual bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const { return false; }
 
     virtual float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const { return 0.f; }
 };
@@ -27,6 +34,9 @@ public:
 #pragma region LAMBERTIAN declaration
 
 class lambertian : public material {
+
+    std::shared_ptr<texture> albedo_texture{};
+
 public:
     
     lambertian(const color& albedo)
@@ -34,111 +44,67 @@ public:
     
     lambertian(std::shared_ptr<texture> tex) : albedo_texture{ tex } {}
 
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
-
-    bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const override;
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override;
 
     float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override;
-
-private:
-    color albedo{};
-    std::shared_ptr<texture> albedo_texture{};
 };
 
 #pragma endregion
 
-bool lambertian::scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const
+bool lambertian::scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const
 {
-    // auto scatter_direction{ rec.normal + random_unit_vector() };
-    auto scatter_direction{ random_on_hemisphere(rec.normal) };
-
-    if (scatter_direction.near_zero())
-        scatter_direction = rec.normal;
-
-    scattered = ray(rec.p, scatter_direction, r_in.time());
-
-    if (albedo_texture)
-        attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
-    else
-        attenuation = albedo;
-
-    return true;
-}
-
-bool lambertian::scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const
-{
-    onb uvw{ rec.normal };
-    vec3 scatter_direction{ uvw.transform(random_cosine_direction()) };
-
-    scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time());
-    attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
-    pdf = dot(uvw.w(), scatter_direction) / pi;
+    srec.attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
+    srec.pdf_ptr = std::make_shared<cosine_pdf>(rec.normal);
+    srec.skip_pdf = false;
     return true;
 }
 
 float lambertian::scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {
-    // auto cos_theta{ dot(rec.normal, unit_vector(scattered.direction())) };
-    // return cos_theta < 0 ? 0 : cos_theta / pi;
-    return 1 / (2 * pi);
+    auto cos_theta{ dot(rec.normal, unit_vector(scattered.direction())) };
+    return cos_theta < 0 ? 0 : cos_theta / pi;
+    // return 1 / (2 * pi);
 }
 
 #pragma region METALIC declaration
 class metalic : public material {
+    
+    color albedo{};
+    float fuzz{};
+
 public:
     metalic(const color& a, float f)
         : albedo(a)
         , fuzz(f < 1.f ? f : 1.f) // aka reflection sharpness
          {};
     
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override;
 
-    bool scatter(
-        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
-    ) const override;
-
-private:
-    color albedo{};
-    float fuzz{};
 };
 
 #pragma endregion
 
-bool metalic::scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const
+bool metalic::scatter(const ray &r_in, const hit_record &rec, scatter_record& srec) const
 {
-    auto reflected{ reflect(unit_vector(r_in.direction()), rec.normal) };
-    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
-    attenuation = albedo;
-    return (dot(scattered.direction(), rec.normal) > 0);
-}
+    auto reflected{ unit_vector(reflect(r_in.direction(), rec.normal)) + fuzz * random_in_unit_sphere() };
+    srec.attenuation = albedo;
+    srec.pdf_ptr = nullptr;
+    srec.skip_pdf = true;
+    srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time());
 
-bool metalic::scatter(
-        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
-    ) const
-{
-    onb uvw(rec.normal);
-    auto scatter_direction = uvw.transform(random_cosine_direction());
-
-    auto reflected{ reflect(unit_vector(r_in.direction()), rec.normal) };
-    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
-    attenuation = albedo;
-    return (dot(scattered.direction(), rec.normal) > 0);
+    return true;
 }
 
 #pragma region DIELECTRIC declaration
 class dielectric : public material {
 public:
     dielectric(float index_of_refraction = 1.f)
-        : ir(index_of_refraction)
+        : refraction_index(index_of_refraction)
          {};
 
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
-
-    bool scatter(
-        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
-    ) const override;
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override;
 
 private:
-    float ir{};
+    float refraction_index{};
 
     static float reflectance(float cosine, float ref_idx) {
         auto r0{ ( 1 - ref_idx ) / ( 1 + ref_idx ) };
@@ -149,10 +115,12 @@ private:
 
 #pragma endregion
 
-bool dielectric::scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const
+bool dielectric::scatter(const ray &r_in, const hit_record &rec, scatter_record& srec) const
 {
-    attenuation = color{ 1.f, 1.f, 1.f };
-    float refraction_ratio{ rec.front_face ? ( 1.0f / ir ) : ir };
+    srec.attenuation = color(1.0, 1.0, 1.0);
+    srec.pdf_ptr = nullptr;
+    srec.skip_pdf = true;
+    float refraction_ratio{ rec.front_face ? ( 1.0f / refraction_index ) : refraction_index };
     
     vec3 unit_direction{ unit_vector(r_in.direction()) };
     float cos_theta{ fmin(dot(-unit_direction, rec.normal), 1.0f) };
@@ -166,30 +134,7 @@ bool dielectric::scatter(const ray &r_in, const hit_record &rec, color &attenuat
     else
         direction = refract(unit_direction, rec.normal, refraction_ratio);
 
-    scattered = ray(rec.p, direction, r_in.time());
-    return true;
-}
-
-bool dielectric::scatter(
-        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
-    ) const
-{
-    attenuation = color{ 1.f, 1.f, 1.f };
-    float refraction_ratio{ rec.front_face ? ( 1.0f / ir ) : ir };
-    
-    vec3 unit_direction{ unit_vector(r_in.direction()) };
-    float cos_theta{ fmin(dot(-unit_direction, rec.normal), 1.0f) };
-    float sin_theta{ sqrt(1.0f - cos_theta * cos_theta) };
-
-    bool cannot_refract{ refraction_ratio * sin_theta > 1.0f };
-    vec3 direction{};
-
-    if (cannot_refract || reflectance(cos_theta, refraction_ratio) > random_float())
-        direction = reflect(unit_direction, rec.normal);
-    else
-        direction = refract(unit_direction, rec.normal, refraction_ratio);
-
-    scattered = ray(rec.p, direction, r_in.time());
+    srec.skip_pdf_ray = ray(rec.p, direction, r_in.time());
     return true;
 }
 
@@ -224,10 +169,10 @@ public:
 
     isotropic(std::shared_ptr<texture> tex) : tex{tex} {}
 
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered, float& pdf) const override {
-        scattered = ray{ rec.p, random_unit_vector(), r_in.time() };
-        attenuation = tex->value(rec.u, rec.v, rec.p);
-        pdf = 1 / (4 * pi);
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
+        srec.attenuation = tex->value(rec.u, rec.v, rec.p);
+        srec.pdf_ptr = std::make_shared<sphere_pdf>();
+        srec.skip_pdf = false;
         return true;
     }
 

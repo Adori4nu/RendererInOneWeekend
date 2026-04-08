@@ -7,13 +7,20 @@
 using color = vec3;
 
 __forceinline float linear_to_gamma(float linear_component) {
-    return sqrtf(linear_component);
+    if (linear_component > 0.f)
+        return std::sqrt(linear_component);
+
+    return 0.f;
 }
 
 void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) {
     auto r = pixel_color.x();
     auto g = pixel_color.y();
     auto b = pixel_color.z();
+
+    if (r != r) r = 0.0f;
+    if (g != g) g = 0.0f;
+    if (b != b) b = 0.0f;
 
     // Divide the color by the number of samples.
     auto scale = 1.0f / samples_per_pixel;
