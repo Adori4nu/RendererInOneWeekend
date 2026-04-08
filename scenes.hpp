@@ -354,7 +354,7 @@ auto simple_light() -> int {
 }
 
 
-auto cornell_box() -> int {
+auto cornell_box(int _samples_per_pixel = 200) -> int {
     entity_list world;
 
     auto red   = std::make_shared<lambertian>(color(.65f, .05f, .05f));
@@ -383,7 +383,7 @@ auto cornell_box() -> int {
 
     cam.aspect_ratio      = 1.0f;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 200;
+    cam.samples_per_pixel = _samples_per_pixel;
     cam.max_depth         = 50;
     cam.background        = color(0.f,0.f,0.f);
 

@@ -1,8 +1,10 @@
 #pragma once
 #include "color.hpp"
 #include "entitylist.hpp"
+#include "onb.hpp"
 #include "rtweekend.hpp"
 #include "texture.hpp"
+#include "vec3.hpp"
 
 #pragma region declaration of abstract material
 class material {
@@ -14,6 +16,10 @@ public:
     }
 
     virtual bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const { return false; }
+
+    virtual bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const { return false; }
+
+    virtual float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const { return 0.f; }
 };
 
 #pragma endregion
@@ -30,6 +36,10 @@ public:
 
     bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
 
+    bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const override;
+
+    float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override;
+
 private:
     color albedo{};
     std::shared_ptr<texture> albedo_texture{};
@@ -39,7 +49,8 @@ private:
 
 bool lambertian::scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const
 {
-    auto scatter_direction{ rec.normal + random_unit_vector() };
+    // auto scatter_direction{ rec.normal + random_unit_vector() };
+    auto scatter_direction{ random_on_hemisphere(rec.normal) };
 
     if (scatter_direction.near_zero())
         scatter_direction = rec.normal;
@@ -54,6 +65,23 @@ bool lambertian::scatter(const ray& r_in, const hit_record& rec, vec3& attenuati
     return true;
 }
 
+bool lambertian::scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf) const
+{
+    onb uvw{ rec.normal };
+    vec3 scatter_direction{ uvw.transform(random_cosine_direction()) };
+
+    scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time());
+    attenuation = albedo_texture->value(rec.u, rec.v, rec.p);
+    pdf = dot(uvw.w(), scatter_direction) / pi;
+    return true;
+}
+
+float lambertian::scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {
+    // auto cos_theta{ dot(rec.normal, unit_vector(scattered.direction())) };
+    // return cos_theta < 0 ? 0 : cos_theta / pi;
+    return 1 / (2 * pi);
+}
+
 #pragma region declaration of metalic
 class metalic : public material {
 public:
@@ -63,16 +91,33 @@ public:
          {};
     
     bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
+
+    bool scatter(
+        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
+    ) const override;
+
 private:
     color albedo{};
     float fuzz{};
 };
 
-
 #pragma endregion
 
 bool metalic::scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const
 {
+    auto reflected{ reflect(unit_vector(r_in.direction()), rec.normal) };
+    scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
+    attenuation = albedo;
+    return (dot(scattered.direction(), rec.normal) > 0);
+}
+
+bool metalic::scatter(
+        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
+    ) const
+{
+    onb uvw(rec.normal);
+    auto scatter_direction = uvw.transform(random_cosine_direction());
+
     auto reflected{ reflect(unit_vector(r_in.direction()), rec.normal) };
     scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
     attenuation = albedo;
@@ -87,6 +132,11 @@ public:
          {};
 
     bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered) const override;
+
+    bool scatter(
+        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
+    ) const override;
+
 private:
     float ir{};
 
@@ -100,6 +150,29 @@ private:
 #pragma endregion
 
 bool dielectric::scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const
+{
+    attenuation = color{ 1.f, 1.f, 1.f };
+    float refraction_ratio{ rec.front_face ? ( 1.0f / ir ) : ir };
+    
+    vec3 unit_direction{ unit_vector(r_in.direction()) };
+    float cos_theta{ fmin(dot(-unit_direction, rec.normal), 1.0f) };
+    float sin_theta{ sqrt(1.0f - cos_theta * cos_theta) };
+
+    bool cannot_refract{ refraction_ratio * sin_theta > 1.0f };
+    vec3 direction{};
+
+    if (cannot_refract || reflectance(cos_theta, refraction_ratio) > random_float())
+        direction = reflect(unit_direction, rec.normal);
+    else
+        direction = refract(unit_direction, rec.normal, refraction_ratio);
+
+    scattered = ray(rec.p, direction, r_in.time());
+    return true;
+}
+
+bool dielectric::scatter(
+        const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, float& pdf
+    ) const
 {
     attenuation = color{ 1.f, 1.f, 1.f };
     float refraction_ratio{ rec.front_face ? ( 1.0f / ir ) : ir };
@@ -149,10 +222,15 @@ public:
 
     isotropic(std::shared_ptr<texture> tex) : tex{tex} {}
 
-    bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered) const override {
+    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation, ray& scattered, float& pdf) const override {
         scattered = ray{ rec.p, random_unit_vector(), r_in.time() };
         attenuation = tex->value(rec.u, rec.v, rec.p);
+        pdf = 1 / (4 * pi);
         return true;
+    }
+
+    float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override {
+        return 1 / (4 * pi);
     }
 };
 #pragma endregion

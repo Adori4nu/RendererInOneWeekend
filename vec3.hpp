@@ -202,5 +202,17 @@ public:
         return ( 1.0f - t ) * a + t * b;
     }
 
+    __forceinline vec3 random_cosine_direction() {
+        auto r1{ random_float() };
+        auto r2{ random_float() };
+        
+        auto phi{ 2 * pi * r1 };
+        auto x{ cos(phi) * sqrt(r2) };
+        auto y{ sin(phi) * sqrt(r2) };
+        auto z{ sqrt(1 - r2) };
+
+        return vec3(x, y, z);
+    }
+
 #pragma endregion
 #pragma endregion

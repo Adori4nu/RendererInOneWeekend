@@ -253,12 +253,16 @@ inline color camera::ray_color(const ray &r, int depth, const entity &world) con
     
     ray scattered{};
     color attenuation{};
+    float pdf_value{};
     color color_from_emission{ rec.mat->emitted(rec.u, rec.v, rec.p) };
 
-    if (!rec.mat->scatter( r, rec, attenuation, scattered ))
+    if (!rec.mat->scatter( r, rec, attenuation, scattered,  pdf_value))
         return color_from_emission;    
-    
-    color color_from_scatter{  attenuation * ray_color(scattered, depth - 1, world) };
+
+    auto scattering_pdf{ rec.mat->scattering_pdf( r, rec, scattered ) };
+    pdf_value = scattering_pdf;
+
+    color color_from_scatter{ (attenuation * scattering_pdf * ray_color(scattered, depth - 1, world) ) / pdf_value };
 
     return color_from_emission + color_from_scatter;
 }

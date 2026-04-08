@@ -132,7 +132,7 @@ int get_scene_choice() {
     }
 }
 
-auto render_scene(int scene_id) -> int {
+auto render_scene(int scene_id, int _sample_count) -> int {
 
     if (scene_id == 0) {
         return 0;
@@ -158,7 +158,7 @@ auto render_scene(int scene_id) -> int {
                 case 6:
                     return simple_light();
                 case 7: 
-                    return cornell_box();
+                    return cornell_box(_sample_count);
                 case 8:
                     return cornell_smoke();
                 case 9:
@@ -174,6 +174,29 @@ auto render_scene(int scene_id) -> int {
     return -1;
 }
 
+auto get_sample_count() -> int {
+    while (true) {
+        std::cout << "Enter samples per pixel (default 100): ";
+        std::string input;
+        std::getline(std::cin, input);
+
+        if (input.empty()) {
+            return 100; // default value
+        }
+
+        if (is_number(input)) {
+            int samples = std::stoi(input);
+            if (samples > 0) {
+                return samples;
+            } else {
+                std::cout << "\033[1;31mPlease enter a positive integer.\033[0m\n";
+            }
+        } else {
+            std::cout << "\033[1;31mInvalid input. Please enter a positive integer.\033[0m\n";
+        }
+    }
+}
+
 auto scene_selection() -> int {
     bool running{ true };
 
@@ -187,7 +210,8 @@ auto scene_selection() -> int {
             std::cout << "Exiting program. Goodbye!\n";
             running = false;
         } else {
-            res = render_scene(scene_choice);
+            int sample_count{ get_sample_count() };
+            res = render_scene(scene_choice, sample_count);
         }
     }
 

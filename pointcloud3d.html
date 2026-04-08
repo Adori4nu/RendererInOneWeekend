@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Point Cloud Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #1a1d24;
+    --border: rgba(255,255,255,0.07); --accent: #4a9eff; --accent2: #7b61ff;
+    --text: #e8eaf0; --text2: #8890a4; --text3: #555d72;
+    --panel-w: 320px; --strip: 40px;
+    --font: 'JetBrains Mono', monospace;
+  }
+  html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:var(--font); color:var(--text); }
+  canvas { display:block; position:fixed; top:0; left:0; width:100vw; height:100vh; }
+  #canvas3d { cursor:grab; } #canvas3d:active { cursor:grabbing; }
+  #canvas2d { cursor:crosshair; }
+
+  /* ── PANEL ── */
+  #panel {
+    position:fixed; top:0; left:0; height:100%;
+    width:var(--strip); background:rgba(10,12,16,0.95);
+    backdrop-filter:blur(18px); border-right:1px solid var(--border);
+    z-index:200; display:flex; flex-direction:row; overflow:hidden;
+    transition:width 0.26s cubic-bezier(0.4,0,0.2,1);
+  }
+  #panel.open { width:var(--panel-w); }
+
+  #strip {
+    width:var(--strip); flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center; padding-top:14px;
+    border-right:1px solid var(--border); cursor:pointer; user-select:none;
+  }
+  #hamburger { display:flex; flex-direction:column; gap:4px; padding:8px 6px; }
+  #hamburger span { display:block; width:16px; height:1.5px; background:var(--text3); border-radius:1px; transition:background 0.2s,transform 0.22s; }
+  #strip:hover #hamburger span { background:var(--text2); }
+  #panel.open #hamburger span:nth-child(1) { transform:translateY(5.5px) rotate(45deg); background:var(--accent); }
+  #panel.open #hamburger span:nth-child(2) { transform:scaleX(0); }
+  #panel.open #hamburger span:nth-child(3) { transform:translateY(-5.5px) rotate(-45deg); background:var(--accent); }
+
+  /* mode icon in strip */
+  #mode-icon {
+    margin-top:10px; font-size:9px; letter-spacing:1px;
+    color:var(--text3); text-align:center; line-height:1.4;
+    cursor:pointer; padding:4px 2px; border-radius:3px;
+    transition:color 0.2s;
+  }
+  #mode-icon:hover { color:var(--accent2); }
+
+  #panel-content {
+    flex:1; display:flex; flex-direction:column;
+    min-width:calc(var(--panel-w) - var(--strip));
+    opacity:0; pointer-events:none; transition:opacity 0.18s 0s; overflow:hidden;
+  }
+  #panel.open #panel-content { opacity:1; pointer-events:all; transition:opacity 0.2s 0.1s; }
+
+  .panel-header { padding:16px 16px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .panel-title { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
+  .panel-sub { font-size:13px; font-weight:500; color:var(--text); }
+
+  .panel-body { flex:1; overflow-y:auto; overflow-x:hidden; padding:12px 0 20px; }
+  .panel-body::-webkit-scrollbar { width:3px; }
+  .panel-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .section { padding:0 16px; margin-bottom:18px; }
+  .section-label { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; color:var(--text3); margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+
+  /* mode tabs inside panel */
+  .mode-tabs { display:flex; gap:0; margin-bottom:14px; border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+  .mode-tab { flex:1; padding:7px 4px; font-family:var(--font); font-size:10px; letter-spacing:1px; text-align:center; cursor:pointer; background:transparent; color:var(--text3); border:none; transition:all 0.15s; }
+  .mode-tab.active { background:rgba(74,158,255,0.15); color:var(--accent); }
+
+  .row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px; }
+  .row label { font-size:11px; color:var(--text2); white-space:nowrap; flex-shrink:0; }
+  .val { font-size:11px; color:var(--accent); min-width:36px; text-align:right; }
+
+  input[type=range] { -webkit-appearance:none; flex:1; height:3px; background:var(--surface2); border-radius:2px; outline:none; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px rgba(74,158,255,0.2); }
+  input[type=text] { flex:1; font-family:var(--font); font-size:11px; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:5px 8px; outline:none; }
+  input[type=text]:focus { border-color:var(--accent); }
+
+  select { flex:1; font-family:var(--font); font-size:11px; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:5px 8px; outline:none; cursor:pointer; appearance:none; }
+  select:focus { border-color:var(--accent); }
+
+  .toggle-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .toggle { font-size:10px; padding:4px 10px; border-radius:3px; border:1px solid var(--border); background:transparent; color:var(--text2); cursor:pointer; font-family:var(--font); letter-spacing:1px; transition:all 0.15s; }
+  .toggle.on { background:rgba(74,158,255,0.15); border-color:var(--accent); color:var(--accent); }
+
+  .btn { width:100%; padding:8px 12px; margin-bottom:6px; font-family:var(--font); font-size:11px; letter-spacing:1px; background:var(--surface2); color:var(--text2); border:1px solid var(--border); border-radius:4px; cursor:pointer; text-align:left; transition:all 0.15s; }
+  .btn:hover { background:rgba(74,158,255,0.1); border-color:var(--accent); color:var(--accent); }
+
+  textarea { width:100%; height:90px; font-family:var(--font); font-size:10px; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:8px; resize:vertical; outline:none; margin-top:6px; line-height:1.5; }
+  textarea:focus { border-color:var(--accent); }
+
+  #drop-zone { border:1px dashed var(--border); border-radius:4px; padding:12px 8px; text-align:center; font-size:10px; color:var(--text3); cursor:pointer; transition:all 0.2s; margin-bottom:6px; line-height:1.6; }
+  #drop-zone:hover, #drop-zone.over { border-color:var(--accent); color:var(--accent); background:rgba(74,158,255,0.05); }
+  #drop-zone input[type=file] { display:none; }
+  #file-status { font-size:10px; color:var(--text3); margin-bottom:6px; min-height:14px; }
+  #file-status.ok { color:#4eff8a; } #file-status.err { color:#ff6b6b; }
+
+  .paste-area { display:none; margin-top:6px; }
+  .paste-area.open { display:block; }
+
+  /* panel sections visibility */
+  #sec-3d, #sec-2d { }
+
+  /* STATS */
+  #stats { position:fixed; bottom:20px; right:20px; background:rgba(10,12,16,0.8); border:1px solid var(--border); border-radius:6px; padding:10px 14px; font-size:10px; color:var(--text2); backdrop-filter:blur(8px); line-height:1.8; min-width:160px; pointer-events:none; z-index:150; }
+  #stats span { color:var(--accent); }
+
+  /* HINT */
+  #hint { position:fixed; bottom:16px; left:calc(var(--strip) + (100vw - var(--strip)) / 2); transform:translateX(-50%); z-index:150; white-space:nowrap; pointer-events:none; font-size:10px; letter-spacing:1px; color:#7a8299; opacity:0.9; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas3d"></canvas>
+<canvas id="canvas2d" style="display:none"></canvas>
+
+<div id="hint">przeciągnij · scroll · dblclick reset</div>
+
+<div id="panel">
+  <div id="strip">
+    <div id="hamburger" onclick="document.getElementById('panel').classList.toggle('open')"><span></span><span></span><span></span></div>
+    <div id="mode-icon" onclick="switchMode()" title="przełącz 2D / 3D">3D<br>2D</div>
+  </div>
+
+  <div id="panel-content">
+    <div class="panel-header">
+      <div class="panel-title">Point Cloud</div>
+      <div class="panel-sub" id="panel-sub">3D Viewer</div>
+    </div>
+    <div class="panel-body">
+
+      <!-- MODE TABS -->
+      <div class="section" style="margin-bottom:10px;">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tab-3d" onclick="setMode('3d')">3D</button>
+          <button class="mode-tab" id="tab-2d" onclick="setMode('2d')">2D</button>
+        </div>
+      </div>
+
+      <!-- ── DANE (shared) ── -->
+      <div class="section">
+        <div class="section-label">Dane</div>
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+             ondragover="event.preventDefault();this.classList.add('over')"
+             ondragleave="this.classList.remove('over')"
+             ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept=".txt,.csv" onchange="handleFileInput(this)">
+          ↧ przeciągnij plik .txt / .csv<br>lub kliknij aby wybrać
+        </div>
+        <div id="file-status"></div>
+        <button class="btn" onclick="togglePaste()">＋ wklej / wpisz punkty</button>
+        <div class="paste-area" id="paste-area">
+          <textarea id="raw-input" id="raw-input"></textarea>
+          <button class="btn" style="margin-top:6px;" onclick="loadPasted()">✓ wczytaj</button>
+        </div>
+        <button class="btn" onclick="loadDemo()">↺ demo</button>
+        <button class="btn" onclick="resetView()">⊙ reset widoku</button>
+      </div>
+
+      <!-- ── 3D OPTIONS ── -->
+      <div id="sec-3d">
+        <div class="section">
+          <div class="section-label">Kamera</div>
+          <div class="row">
+            <label>FOV</label>
+            <input type="range" id="fov" min="20" max="120" step="1" value="60" oninput="fovVal=+this.value;document.getElementById('fov-out').textContent=this.value+'°';render()">
+            <span class="val" id="fov-out">60°</span>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-label">Punkty 3D</div>
+          <div class="row">
+            <label>Rozmiar</label>
+            <input type="range" id="ptsize3" min="1" max="12" step="0.5" value="4" oninput="ptSize=+this.value;document.getElementById('ps3-out').textContent=this.value;render()">
+            <span class="val" id="ps3-out">4</span>
+          </div>
+          <div class="row">
+            <label>Kolor</label>
+            <select id="colormode" onchange="colorMode=this.value;render()">
+              <option value="depth">głębokość Z</option>
+              <option value="height">wysokość Y</option>
+              <option value="distance">odległość</option>
+              <option value="uniform">jednolity</option>
+            </select>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-label">Siatka 3D</div>
+          <div class="row">
+            <label>Krok</label>
+            <input type="range" id="grid-step" min="0" max="9" step="1" value="3"
+              oninput="gridStepIdx=+this.value;document.getElementById('gs-out').textContent=gridStepLabels[gridStepIdx];render()">
+            <span class="val" id="gs-out">0.5</span>
+          </div>
+          <div class="row"><label>Płaszczyzny</label></div>
+          <div class="toggle-row">
+            <button class="toggle on" id="t-xy" onclick="togglePlane('xy')">XY</button>
+            <button class="toggle on" id="t-xz" onclick="togglePlane('xz')">XZ</button>
+            <button class="toggle on" id="t-yz" onclick="togglePlane('yz')">YZ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 2D OPTIONS ── -->
+      <div id="sec-2d" style="display:none">
+        <div class="section">
+          <div class="section-label">Osie</div>
+          <div class="row">
+            <label>Oś X</label>
+            <input type="text" id="axis-x-name" value="X" oninput="render2d()">
+          </div>
+          <div class="row">
+            <label>Oś Y</label>
+            <input type="text" id="axis-y-name" value="Y" oninput="render2d()">
+          </div>
+          <div class="row">
+            <label>Kolumna X</label>
+            <select id="col-x" onchange="render2d()"><option>1</option></select>
+          </div>
+          <div class="row">
+            <label>Kolumna Y</label>
+            <select id="col-y" onchange="render2d()"><option>2</option></select>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-label">Punkty 2D</div>
+          <div class="row">
+            <label>Rozmiar</label>
+            <input type="range" id="ptsize2" min="1" max="14" step="0.5" value="5" oninput="ptSize2=+this.value;document.getElementById('ps2-out').textContent=this.value;render2d()">
+            <span class="val" id="ps2-out">5</span>
+          </div>
+          <div class="row">
+            <label>Siatka X</label>
+            <input type="range" id="grid2x-step" min="0" max="9" step="1" value="3"
+              oninput="grid2xIdx=+this.value;document.getElementById('gs2x-out').textContent=gridStepLabels[grid2xIdx];render2d()">
+            <span class="val" id="gs2x-out">0.5</span>
+          </div>
+          <div class="row">
+            <label>Siatka Y</label>
+            <input type="range" id="grid2y-step" min="0" max="9" step="1" value="3"
+              oninput="grid2yIdx=+this.value;document.getElementById('gs2y-out').textContent=gridStepLabels[grid2yIdx];render2d()">
+            <span class="val" id="gs2y-out">0.5</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-body -->
+  </div><!-- /panel-content -->
+</div><!-- /panel -->
+
+<div id="stats">
+  punkty: <span id="s-count">0</span><br>
+  X: <span id="s-x">—</span><br>
+  Y: <span id="s-y">—</span><br>
+  Z: <span id="s-z">—</span>
+</div>
+
+<script>
+// ══ SHARED STATE ═════════════════════════════════════════════════════════════
+const canvas3 = document.getElementById('canvas3d');
+const ctx3    = canvas3.getContext('2d');
+const canvas2 = document.getElementById('canvas2d');
+const ctx2    = canvas2.getContext('2d');
+
+let mode = '3d'; // '3d' | '2d'
+
+// raw data: array of arrays (all columns)
+let rawRows = [];   // [{cols:[v1,v2,...], headers:['X','Y',...]}]
+let colHeaders = [];// column names from first row if text
+let points = [];    // 3d: [{x,y,z}], populated from rawRows
+let points2d = [];  // 2d: [{x,y}]
+
+const gridSteps      = [0.05,0.1,0.2,0.25,0.4,0.5,1.0,2.0,5.0,10.0];
+const gridStepLabels = ['0.05','0.1','0.2','0.25','0.4','0.5','1.0','2.0','5.0','10.0'];
+
+let gridStepIdx = 5, grid2xIdx = 5, grid2yIdx = 5;
+let showXY=true, showXZ=true, showYZ=true;
+let ptSize=4, ptSize2=5, colorMode='depth', fovVal=60;
+let bounds={minX:-1,maxX:1,minY:-1,maxY:1,minZ:-1,maxZ:1};
+
+// ── 3D camera
+let camTheta=0.6, camPhi=0.42, camDist=3.5, camTarget=[0,0,0];
+let dragging=false, lastX, lastY;
+
+// ── 2D pan/zoom
+let pan2={x:0,y:0}, zoom2=1, drag2=false, last2={x:0,y:0};
+
+// ══ MODE SWITCH ═══════════════════════════════════════════════════════════════
+function setMode(m){
+  mode=m;
+  canvas3.style.display = m==='3d'?'block':'none';
+  canvas2.style.display = m==='2d'?'block':'none';
+  document.getElementById('sec-3d').style.display = m==='3d'?'block':'none';
+  document.getElementById('sec-2d').style.display = m==='2d'?'block':'none';
+  document.getElementById('tab-3d').classList.toggle('active', m==='3d');
+  document.getElementById('tab-2d').classList.toggle('active', m==='2d');
+  document.getElementById('panel-sub').textContent = m==='3d'?'3D Viewer':'2D Plot';
+  document.getElementById('hint').textContent = m==='3d'
+    ? 'przeciągnij · scroll · dblclick reset'
+    : 'przeciągnij · scroll · dblclick reset · wybierz kolumny w menu';
+  const sY = document.getElementById('stats');
+  if(m==='2d'){ sY.innerHTML='punkty: <span id="s-count">0</span><br>X: <span id="s-x">—</span><br>Y: <span id="s-y">—</span>'; }
+  else { sY.innerHTML='punkty: <span id="s-count">0</span><br>X: <span id="s-x">—</span><br>Y: <span id="s-y">—</span><br>Z: <span id="s-z">—</span>'; }
+  if(m==='2d') render2d(); else render();
+}
+
+function switchMode(){ setMode(mode==='3d'?'2d':'3d'); }
+
+// ══ PASTE PLACEHOLDER ════════════════════════════════════════════════════════
+function updatePlaceholder(){
+  const ta=document.getElementById('raw-input');
+  if(mode==='2d'){
+    ta.placeholder='Pierwsza linia: nazwy kolumn (po spacji)\nnastępne linie: wartości\n\nPrzykład:\nczas temperatura\n0 20.1\n1 21.3\n2 19.8\n\nlub CSV:\nczas,temperatura\n0,20.1\n1,21.3';
+  } else {
+    ta.placeholder='x: 0.03, y: -0.58, z: 0.81\nx: 0.19, y: 0.81, z: 0.54\n\nlub CSV:\n0.03, -0.58, 0.81\n0.19, 0.81, 0.54';
+  }
+}
+
+// ══ DATA PARSING ══════════════════════════════════════════════════════════════
+function parseUniversal(text){
+  // Returns {headers, rows} where rows = array of number arrays
+  const lines = text.trim().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
+  if(!lines.length) return {headers:[], rows:[]};
+
+  // detect separator
+  const sep = lines[0].includes(',') ? /,/ : /\s+/;
+
+  // check if first line is a header (contains non-numeric)
+  const firstCells = lines[0].split(sep).map(s=>s.trim());
+  const firstIsHeader = firstCells.some(c=>isNaN(parseFloat(c)));
+
+  let headers=[], dataLines=lines;
+  if(firstIsHeader){ headers=firstCells; dataLines=lines.slice(1); }
+
+  const rows=[];
+  for(const line of dataLines){
+    const cells=line.split(sep).map(s=>s.trim());
+    const nums=cells.map(c=>parseFloat(c));
+    if(nums.length>=2 && nums.every(n=>!isNaN(n))) rows.push(nums);
+  }
+  return {headers, rows};
+}
+
+function parsePoints3D(text){
+  const lines=text.trim().split('\n').filter(l=>l.trim()&&!l.trim().startsWith('#'));
+  const pts=[];
+  for(const line of lines){
+    const xm=line.match(/x\s*[:=]\s*([-\d.eE+]+)/i);
+    const ym=line.match(/y\s*[:=]\s*([-\d.eE+]+)/i);
+    const zm=line.match(/z\s*[:=]\s*([-\d.eE+]+)/i);
+    if(xm&&ym&&zm){ pts.push({x:parseFloat(xm[1]),y:parseFloat(ym[1]),z:parseFloat(zm[1])}); continue; }
+    const nums=line.match(/([-\d.eE+]+)/g);
+    if(nums&&nums.length>=3) pts.push({x:parseFloat(nums[0]),y:parseFloat(nums[1]),z:parseFloat(nums[2])});
+  }
+  return pts;
+}
+
+function applyData(text){
+  if(mode==='3d'){
+    const pts=parsePoints3D(text);
+    if(!pts.length) return false;
+    points=pts; rawRows=[]; colHeaders=[];
+    computeBounds3D(); updateStats3D(); render();
+    return true;
+  } else {
+    const {headers,rows}=parseUniversal(text);
+    if(!rows.length) return false;
+    rawRows=rows; colHeaders=headers;
+    buildColSelectors();
+    applyColSelection();
+    return true;
+  }
+}
+
+function buildColSelectors(){
+  const n=rawRows[0]?rawRows[0].length:0;
+  ['col-x','col-y'].forEach((id,i)=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='';
+    for(let c=0;c<n;c++){
+      const opt=document.createElement('option');
+      opt.value=c;
+      opt.textContent=colHeaders[c]||('col '+(c+1));
+      if(c===i) opt.selected=true;
+      sel.appendChild(opt);
+    }
+  });
+  // update axis name inputs from headers
+  if(colHeaders.length>=2){
+    document.getElementById('axis-x-name').value=colHeaders[0]||'X';
+    document.getElementById('axis-y-name').value=colHeaders[1]||'Y';
+  }
+}
+
+function applyColSelection(){
+  const cx=+document.getElementById('col-x').value;
+  const cy=+document.getElementById('col-y').value;
+  points2d=rawRows.map(r=>({x:r[cx],y:r[cy]})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+  computeBounds2D();
+  updateStats2D();
+  render2d();
+}
+
+// ══ BOUNDS ════════════════════════════════════════════════════════════════════
+function computeBounds3D(){
+  if(!points.length)return;
+  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),zs=points.map(p=>p.z);
+  const pad=0.05;
+  bounds={minX:Math.min(...xs)-pad,maxX:Math.max(...xs)+pad,minY:Math.min(...ys)-pad,maxY:Math.max(...ys)+pad,minZ:Math.min(...zs)-pad,maxZ:Math.max(...zs)+pad};
+  const cx=(bounds.minX+bounds.maxX)/2,cy=(bounds.minY+bounds.maxY)/2,cz=(bounds.minZ+bounds.maxZ)/2;
+  camTarget=[cx,cy,cz];
+  camDist=Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY,bounds.maxZ-bounds.minZ)*1.8;
+}
+
+let bounds2={minX:0,maxX:1,minY:0,maxY:1};
+function computeBounds2D(){
+  if(!points2d.length)return;
+  const xs=points2d.map(p=>p.x),ys=points2d.map(p=>p.y);
+  const padX=(Math.max(...xs)-Math.min(...xs))*0.05||0.5;
+  const padY=(Math.max(...ys)-Math.min(...ys))*0.05||0.5;
+  bounds2={minX:Math.min(...xs)-padX,maxX:Math.max(...xs)+padX,minY:Math.min(...ys)-padY,maxY:Math.max(...ys)+padY};
+  pan2={x:0,y:0}; zoom2=1;
+}
+
+// ══ STATS ════════════════════════════════════════════════════════════════════
+function updateStats3D(){
+  const f=v=>v.toFixed(3);
+  document.getElementById('s-count').textContent=points.length;
+  if(!points.length)return;
+  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),zs=points.map(p=>p.z);
+  document.getElementById('s-x').textContent=f(Math.min(...xs))+' / '+f(Math.max(...xs));
+  document.getElementById('s-y').textContent=f(Math.min(...ys))+' / '+f(Math.max(...ys));
+  const sz=document.getElementById('s-z');
+  if(sz) sz.textContent=f(Math.min(...zs))+' / '+f(Math.max(...zs));
+}
+function updateStats2D(){
+  document.getElementById('s-count').textContent=points2d.length;
+  if(!points2d.length)return;
+  const xs=points2d.map(p=>p.x),ys=points2d.map(p=>p.y);
+  const f=v=>v.toFixed(3);
+  document.getElementById('s-x').textContent=f(Math.min(...xs))+' / '+f(Math.max(...xs));
+  document.getElementById('s-y').textContent=f(Math.min(...ys))+' / '+f(Math.max(...ys));
+}
+
+// ══ 3D PROJECTION ════════════════════════════════════════════════════════════
+function project3(wx,wy,wz){
+  const W=canvas3.width,H=canvas3.height;
+  const cx=Math.cos(camPhi),sx=Math.sin(camPhi),cy=Math.cos(camTheta),sy=Math.sin(camTheta);
+  const ex=camTarget[0]+camDist*cy*cx, ey=camTarget[1]+camDist*sx, ez=camTarget[2]+camDist*sy*cx;
+  let fx=camTarget[0]-ex,fy=camTarget[1]-ey,fz=camTarget[2]-ez;
+  const fl=Math.sqrt(fx*fx+fy*fy+fz*fz); fx/=fl;fy/=fl;fz/=fl;
+  let rx=fy*0-fz*1,ry=fz*0-fx*0,rz=fx*1-fy*0;
+  const rl=Math.sqrt(rx*rx+ry*ry+rz*rz); rx/=rl;ry/=rl;rz/=rl;
+  const ux=ry*fz-rz*fy,uy=rz*fx-rx*fz,uz=rx*fy-ry*fx;
+  const dx=wx-ex,dy=wy-ey,dz=wz-ez;
+  const camX=dx*rx+dy*ry+dz*rz, camY=dx*ux+dy*uy+dz*uz, camZ=dx*fx+dy*fy+dz*fz;
+  if(camZ<=0.001)return null;
+  const f=1/Math.tan(fovVal*Math.PI/360), asp=W/H;
+  return {sx:W/2+(camX/camZ)*f/asp*W/2, sy:H/2-(camY/camZ)*f*H/2, depth:camZ};
+}
+
+// ══ 3D RENDER ════════════════════════════════════════════════════════════════
+function getColor3(p){
+  const {minY,maxY,minZ,maxZ}=bounds;
+  let t;
+  if(colorMode==='depth') t=(p.z-minZ)/(maxZ-minZ+0.001);
+  else if(colorMode==='height') t=(p.y-minY)/(maxY-minY+0.001);
+  else if(colorMode==='distance'){ const d=Math.sqrt(p.x*p.x+p.y*p.y+p.z*p.z); t=Math.min(1,d/2); }
+  else t=0.55;
+  return `rgba(${Math.round(30+t*220)},${Math.round(100+(1-Math.abs(t-0.5)*2)*140)},${Math.round(230-t*200)},0.9)`;
+}
+
+function snapTicks(mn,mx,step){ const t=[]; const s=Math.ceil(mn/step-1e-9)*step; for(let v=s;v<=mx+step*0.01;v+=step) t.push(parseFloat(v.toFixed(10))); return t; }
+function makeVec(a1,v1,a2,v2,af,vf){ const o={}; o[a1]=v1;o[a2]=v2;o[af]=vf; return [o.x,o.y,o.z]; }
+
+function drawGrid3(a1,a2,af,fv,step){
+  const {minX,maxX,minY,maxY,minZ,maxZ}=bounds;
+  const ranges={x:[minX,maxX],y:[minY,maxY],z:[minZ,maxZ]};
+  const r1=ranges[a1],r2=ranges[a2];
+  ctx3.strokeStyle='rgba(130,150,180,0.12)'; ctx3.lineWidth=1;
+  for(const t of snapTicks(r1[0],r1[1],step)){
+    const A=project3(...makeVec(a1,t,a2,r2[0],af,fv)),B=project3(...makeVec(a1,t,a2,r2[1],af,fv));
+    if(!A||!B)continue; ctx3.beginPath();ctx3.moveTo(A.sx,A.sy);ctx3.lineTo(B.sx,B.sy);ctx3.stroke();
+  }
+  for(const t of snapTicks(r2[0],r2[1],step)){
+    const A=project3(...makeVec(a1,r1[0],a2,t,af,fv)),B=project3(...makeVec(a1,r1[1],a2,t,af,fv));
+    if(!A||!B)continue; ctx3.beginPath();ctx3.moveTo(A.sx,A.sy);ctx3.lineTo(B.sx,B.sy);ctx3.stroke();
+  }
+  ctx3.fillStyle='rgba(136,144,164,0.7)'; ctx3.font='10px JetBrains Mono,monospace'; ctx3.textAlign='center';
+  for(const t of snapTicks(r1[0],r1[1],step)){
+    const sp=project3(...makeVec(a1,t,a2,r2[0],af,fv)); if(!sp)continue;
+    ctx3.fillText(Math.abs(t)<1e-9?'0':parseFloat(t.toFixed(3)).toString(),sp.sx,sp.sy+13);
+  }
+  for(const t of snapTicks(r2[0],r2[1],step)){
+    const sp=project3(...makeVec(a1,r1[0],a2,t,af,fv)); if(!sp)continue;
+    ctx3.fillText(Math.abs(t)<1e-9?'0':parseFloat(t.toFixed(3)).toString(),sp.sx,sp.sy+13);
+  }
+}
+
+function drawPlane3(corners){
+  ctx3.beginPath();
+  const p0=project3(...corners[0]); if(!p0)return;
+  ctx3.moveTo(p0.sx,p0.sy);
+  for(let i=1;i<corners.length;i++){ const p=project3(...corners[i]); if(!p)return; ctx3.lineTo(p.sx,p.sy); }
+  ctx3.closePath(); ctx3.fillStyle='rgba(20,25,40,0.45)'; ctx3.fill();
+}
+
+function drawAxes3(){
+  const {minX,maxX,minY,maxY,minZ,maxZ}=bounds;
+  for(const a of [{from:[minX,minY,minZ],to:[maxX,minY,minZ],label:'X',r:230,g:70,b:70},{from:[minX,minY,minZ],to:[minX,maxY,minZ],label:'Y',r:70,g:200,b:100},{from:[minX,minY,minZ],to:[minX,minY,maxZ],label:'Z',r:70,g:130,b:240}]){
+    const f=project3(...a.from),t=project3(...a.to); if(!f||!t)continue;
+    ctx3.beginPath();ctx3.moveTo(f.sx,f.sy);ctx3.lineTo(t.sx,t.sy);
+    ctx3.strokeStyle=`rgba(${a.r},${a.g},${a.b},0.7)`;ctx3.lineWidth=1.5;ctx3.stroke();
+    ctx3.fillStyle=`rgba(${a.r},${a.g},${a.b},0.9)`;ctx3.font='bold 12px JetBrains Mono,monospace';ctx3.textAlign='center';
+    ctx3.fillText(a.label,t.sx,t.sy-8);
+  }
+}
+
+function render(){
+  const W=canvas3.width,H=canvas3.height;
+  ctx3.fillStyle='#0a0c10'; ctx3.fillRect(0,0,W,H);
+  if(!points.length){ ctx3.fillStyle='rgba(136,144,164,0.4)'; ctx3.font='13px JetBrains Mono,monospace'; ctx3.textAlign='center'; ctx3.fillText('wczytaj dane lub kliknij demo',W/2,H/2); return; }
+  const {minX,maxX,minY,maxY,minZ,maxZ}=bounds;
+  const step=gridSteps[gridStepIdx];
+  const planes=[];
+  if(showXY)planes.push({corners:[[minX,minY,minZ],[maxX,minY,minZ],[maxX,maxY,minZ],[minX,maxY,minZ]],a1:'x',a2:'y',af:'z',fv:minZ});
+  if(showXZ)planes.push({corners:[[minX,minY,minZ],[maxX,minY,minZ],[maxX,minY,maxZ],[minX,minY,maxZ]],a1:'x',a2:'z',af:'y',fv:minY});
+  if(showYZ)planes.push({corners:[[minX,minY,minZ],[minX,maxY,minZ],[minX,maxY,maxZ],[minX,minY,maxZ]],a1:'y',a2:'z',af:'x',fv:minX});
+  planes.forEach(pl=>{ const c=pl.corners.reduce((a,v)=>[a[0]+v[0]/4,a[1]+v[1]/4,a[2]+v[2]/4],[0,0,0]); const sp=project3(...c); pl._d=sp?sp.depth:0; });
+  planes.sort((a,b)=>a._d-b._d);
+  for(const pl of planes){ drawPlane3(pl.corners); drawGrid3(pl.a1,pl.a2,pl.af,pl.fv,step); }
+  drawAxes3();
+  const proj=points.map(p=>{ const sp=project3(p.x,p.y,p.z); return sp?{...sp,color:getColor3(p)}:null; }).filter(Boolean);
+  proj.sort((a,b)=>b.depth-a.depth);
+  for(const pt of proj){
+    const r=ptSize;
+    const grd=ctx3.createRadialGradient(pt.sx,pt.sy,0,pt.sx,pt.sy,r*1.8);
+    grd.addColorStop(0,pt.color); grd.addColorStop(1,'transparent');
+    ctx3.beginPath();ctx3.arc(pt.sx,pt.sy,r*1.8,0,Math.PI*2);ctx3.fillStyle=grd;ctx3.fill();
+    ctx3.beginPath();ctx3.arc(pt.sx,pt.sy,r,0,Math.PI*2);ctx3.fillStyle=pt.color;ctx3.fill();
+  }
+}
+
+// ══ 2D RENDER ════════════════════════════════════════════════════════════════
+function render2d(){
+  const W=canvas2.width, H=canvas2.height;
+  ctx2.fillStyle='#0a0c10'; ctx2.fillRect(0,0,W,H);
+
+  if(!points2d.length){
+    ctx2.fillStyle='rgba(136,144,164,0.4)'; ctx2.font='13px JetBrains Mono,monospace'; ctx2.textAlign='center';
+    ctx2.fillText('wczytaj dane lub kliknij demo',W/2,H/2); return;
+  }
+
+  const axXname = document.getElementById('axis-x-name').value||'X';
+  const axYname = document.getElementById('axis-y-name').value||'Y';
+  const stepX = gridSteps[grid2xIdx];
+  const stepY = gridSteps[grid2yIdx];
+
+  // margins
+  const ML=115, MR=30, MT=30, MB=100;
+  const pw=W-ML-MR, ph=H-MT-MB;
+
+  // world→screen with pan/zoom
+  const {minX,maxX,minY,maxY}=bounds2;
+  const spanX=(maxX-minX)/zoom2, spanY=(maxY-minY)/zoom2;
+  const cx2=(minX+maxX)/2 - pan2.x*(spanX/pw);
+  const cy2=(minY+maxY)/2 + pan2.y*(spanY/ph);
+
+  function wx2sx(wx){ return ML + (wx-(cx2-spanX/2))/spanX*pw; }
+  function wy2sy(wy){ return MT + ph - (wy-(cy2-spanY/2))/spanY*ph; }
+
+  // clip to plot area
+  ctx2.save(); ctx2.beginPath(); ctx2.rect(ML,MT,pw,ph); ctx2.clip();
+
+  // grid
+  const txs=snapTicks(cx2-spanX/2-stepX, cx2+spanX/2+stepX, stepX);
+  const tys=snapTicks(cy2-spanY/2-stepY, cy2+spanY/2+stepY, stepY);
+  ctx2.strokeStyle='rgba(130,150,180,0.1)'; ctx2.lineWidth=1;
+  for(const t of txs){ const sx=wx2sx(t); ctx2.beginPath();ctx2.moveTo(sx,MT);ctx2.lineTo(sx,MT+ph);ctx2.stroke(); }
+  for(const t of tys){ const sy=wy2sy(t); ctx2.beginPath();ctx2.moveTo(ML,sy);ctx2.lineTo(ML+pw,sy);ctx2.stroke(); }
+
+  // zero lines
+  ctx2.strokeStyle='rgba(180,190,210,0.2)'; ctx2.lineWidth=1;
+  { const sy=wy2sy(0); if(sy>MT&&sy<MT+ph){ ctx2.beginPath();ctx2.moveTo(ML,sy);ctx2.lineTo(ML+pw,sy);ctx2.stroke(); } }
+  { const sx=wx2sx(0); if(sx>ML&&sx<ML+pw){ ctx2.beginPath();ctx2.moveTo(sx,MT);ctx2.lineTo(sx,MT+ph);ctx2.stroke(); } }
+
+  // points
+  for(const p of points2d){
+    const sx=wx2sx(p.x), sy=wy2sy(p.y);
+    const r=ptSize2;
+    const grd=ctx2.createRadialGradient(sx,sy,0,sx,sy,r*1.8);
+    grd.addColorStop(0,'rgba(74,158,255,0.9)'); grd.addColorStop(1,'transparent');
+    ctx2.beginPath();ctx2.arc(sx,sy,r*1.8,0,Math.PI*2);ctx2.fillStyle=grd;ctx2.fill();
+    ctx2.beginPath();ctx2.arc(sx,sy,r,0,Math.PI*2);ctx2.fillStyle='rgba(74,158,255,0.95)';ctx2.fill();
+  }
+
+  ctx2.restore();
+
+  // axes frame
+  ctx2.strokeStyle='rgba(180,190,210,0.3)'; ctx2.lineWidth=1;
+  ctx2.strokeRect(ML,MT,pw,ph);
+
+  // tick labels X
+  ctx2.fillStyle='rgba(136,144,164,0.8)'; ctx2.font='10px JetBrains Mono,monospace'; ctx2.textAlign='center';
+  for(const t of txs){
+    const sx=wx2sx(t); if(sx<ML||sx>ML+pw)continue;
+    const lbl=Math.abs(t)<1e-9?'0':parseFloat(t.toFixed(4)).toString();
+    ctx2.fillText(lbl, sx, MT+ph+14);
+  }
+  // tick labels Y
+  ctx2.textAlign='right';
+  for(const t of tys){
+    const sy=wy2sy(t); if(sy<MT||sy>MT+ph)continue;
+    const lbl=Math.abs(t)<1e-9?'0':parseFloat(t.toFixed(4)).toString();
+    ctx2.fillText(lbl, ML-6, sy+3);
+  }
+
+  // axis names
+  ctx2.fillStyle='rgba(200,210,230,0.9)'; ctx2.font='bold 12px JetBrains Mono,monospace';
+  ctx2.textAlign='center'; ctx2.textBaseline='middle';
+  // X label — centered below plot, above hint area
+  ctx2.fillText(axXname, ML+pw/2, MT+ph+46);
+  // Y label — rotated, fits between left edge and tick numbers
+  ctx2.save();
+  ctx2.translate(77, MT+ph/2);
+  ctx2.rotate(-Math.PI/2);
+  ctx2.fillText(axYname, 0, 0);
+  ctx2.restore();
+  ctx2.textBaseline='alphabetic';
+}
+
+// ══ 3D INTERACTION ════════════════════════════════════════════════════════════
+canvas3.addEventListener('mousedown',e=>{ if(e.clientX>40){dragging=true;lastX=e.clientX;lastY=e.clientY;} });
+window.addEventListener('mouseup',()=>{dragging=false;drag2=false;});
+window.addEventListener('mousemove',e=>{
+  if(mode==='3d'&&dragging){
+    camTheta-=(e.clientX-lastX)*0.006; camPhi+=(e.clientY-lastY)*0.006;
+    camPhi=Math.max(-1.5,Math.min(1.5,camPhi));
+    lastX=e.clientX;lastY=e.clientY; render();
+  }
+  if(mode==='2d'&&drag2){
+    pan2.x+=e.clientX-last2.x; pan2.y+=e.clientY-last2.y;
+    last2={x:e.clientX,y:e.clientY}; render2d();
+  }
+});
+canvas3.addEventListener('wheel',e=>{ camDist*=e.deltaY>0?1.07:0.93; camDist=Math.max(0.05,Math.min(500,camDist)); e.preventDefault();render(); },{passive:false});
+canvas3.addEventListener('dblclick',resetView);
+
+// ══ 2D INTERACTION ════════════════════════════════════════════════════════════
+canvas2.addEventListener('mousedown',e=>{ if(e.clientX>40){drag2=true;last2={x:e.clientX,y:e.clientY};} });
+canvas2.addEventListener('wheel',e=>{ zoom2*=e.deltaY>0?0.88:1.13; zoom2=Math.max(0.05,Math.min(200,zoom2)); e.preventDefault();render2d(); },{passive:false});
+canvas2.addEventListener('dblclick',resetView);
+
+// touch 3D
+canvas3.addEventListener('touchstart',e=>{const t=e.touches[0];lastX=t.clientX;lastY=t.clientY;e.preventDefault();},{passive:false});
+canvas3.addEventListener('touchmove',e=>{ const t=e.touches[0]; camTheta-=(t.clientX-lastX)*0.006;camPhi+=(t.clientY-lastY)*0.006;camPhi=Math.max(-1.5,Math.min(1.5,camPhi));lastX=t.clientX;lastY=t.clientY;render();e.preventDefault();},{passive:false});
+
+// ══ UTILS ════════════════════════════════════════════════════════════════════
+function resetView(){
+  if(mode==='3d'){ camTheta=0.6;camPhi=0.42; if(points.length)computeBounds3D();else{camDist=3.5;camTarget=[0,0,0];} render(); }
+  else { pan2={x:0,y:0};zoom2=1; render2d(); }
+}
+
+function togglePlane(id){
+  if(id==='xy')showXY=!showXY; else if(id==='xz')showXZ=!showXZ; else showYZ=!showYZ;
+  document.getElementById('t-'+id).classList.toggle('on'); render();
+}
+
+function togglePaste(){
+  updatePlaceholder();
+  document.getElementById('paste-area').classList.toggle('open');
+}
+
+function loadPasted(){
+  const raw=document.getElementById('raw-input').value;
+  const ok=applyData(raw);
+  if(ok) document.getElementById('paste-area').classList.remove('open');
+}
+
+// ── file handling
+function handleDrop(e){
+  e.preventDefault(); document.getElementById('drop-zone').classList.remove('over');
+  const file=e.dataTransfer.files[0]; if(file)readFile(file);
+}
+function handleFileInput(input){ if(input.files[0])readFile(input.files[0]); input.value=''; }
+
+function readFile(file){
+  const status=document.getElementById('file-status');
+  if(!file.name.match(/\.(txt|csv)$/i)){ status.className='err';status.textContent='⚠ tylko .txt lub .csv';return; }
+  status.className='';status.textContent='wczytuję…';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const ok=applyData(ev.target.result);
+    status.className=ok?'ok':'err';
+    status.textContent='';
+    status.textContent=ok?('\u2713 '+(mode==='3d'?points.length:points2d.length)+' pkt \u2014 '+file.name):'⚠ nie znaleziono punktów';
+  };
+  reader.onerror=()=>{status.className='err';status.textContent='⚠ błąd odczytu';};
+  reader.readAsText(file);
+}
+
+// canvas-wide drop
+function canvasDrop(canvas){
+  canvas.addEventListener('dragover',e=>{e.preventDefault();canvas.style.outline='2px solid #4a9eff';});
+  canvas.addEventListener('dragleave',()=>{canvas.style.outline='';});
+  canvas.addEventListener('drop',e=>{e.preventDefault();canvas.style.outline='';const f=e.dataTransfer.files[0];if(f)readFile(f);});
+}
+canvasDrop(canvas3); canvasDrop(canvas2);
+
+// 2d col selectors trigger re-render
+document.getElementById('col-x').addEventListener('change',applyColSelection);
+document.getElementById('col-y').addEventListener('change',applyColSelection);
+
+function loadDemo(){
+  if(mode==='3d'){
+    const pts=[];
+    for(let i=0;i<400;i++){
+      const theta=Math.random()*Math.PI*2, phi=Math.acos(2*Math.random()-1), r=0.85+Math.random()*0.15;
+      pts.push({x:r*Math.sin(phi)*Math.cos(theta),y:r*Math.sin(phi)*Math.sin(theta),z:r*Math.cos(phi)});
+    }
+    points=pts; rawRows=[]; colHeaders=[];
+    computeBounds3D(); updateStats3D(); render();
+  } else {
+    // sine wave demo
+    const text='czas sygnal\n'+Array.from({length:80},(_,i)=>{ const t=i*0.1; return t.toFixed(2)+' '+Math.sin(t).toFixed(4); }).join('\n');
+    applyData(text);
+  }
+}
+
+function resize(){
+  canvas3.width=window.innerWidth; canvas3.height=window.innerHeight;
+  canvas2.width=window.innerWidth; canvas2.height=window.innerHeight;
+  if(mode==='3d')render(); else render2d();
+}
+
+window.addEventListener('resize',resize);
+resize();
+loadDemo();
+</script>
+</body>
+</html>
