@@ -31,7 +31,7 @@ public:
     __forceinline vec3& operator/=(const float t);
 
     __forceinline float length() const { return sqrtf( e[0] * e[0] + e[1] * e[1] + e[2] * e[2] ); }
-    __forceinline float sqared_length() const { return e[0] * e[0] + e[1] * e[1] + e[2] * e[2]; }
+    __forceinline float squared_length() const { return e[0] * e[0] + e[1] * e[1] + e[2] * e[2]; }
     __forceinline bool near_zero() const;
     __forceinline void make_unit_vector();
 
@@ -161,7 +161,7 @@ public:
     __forceinline vec3 random_in_unit_disk() {
         while (true) {
             auto p{ vec3{ random_float(-1.f, 1.f), random_float(-1.f, 1.f), 0 } };
-            if (p.sqared_length() < 1.f)
+            if (p.squared_length() < 1.f)
                 return p;
         }
     }
@@ -169,7 +169,7 @@ public:
     __forceinline vec3 random_in_unit_sphere() {
         while (true) {
             auto p = vec3::random(-1.f,1.f);
-            if (p.sqared_length() < 1.f)
+            if (p.squared_length() < 1.f)
                 return p;
         }
     }
@@ -193,7 +193,7 @@ public:
     __forceinline vec3 refract(const vec3& uv, const vec3& n, float etai_over_etat) {
         auto cos_theta{ fmin(dot(-uv, n), 1.0f)};
         vec3 r_out_perp{ etai_over_etat * (uv + cos_theta * n) };
-        vec3 r_out_parallel{ -sqrt(fabs(1.0f - r_out_perp.sqared_length())) * n };
+        vec3 r_out_parallel{ -sqrt(fabs(1.0f - r_out_perp.squared_length())) * n };
         return r_out_perp + r_out_parallel;
     }
 

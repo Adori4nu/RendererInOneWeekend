@@ -6,12 +6,12 @@
 #include "texture.hpp"
 #include "vec3.hpp"
 
-#pragma region declaration of abstract material
+#pragma region ABSTRACT material declaration
 class material {
 public:
     virtual ~material() = default;
 
-    virtual color emitted(float u, float v, const point3& p) const {
+    virtual color emitted(const ray& r_in, const hit_record& rec, float u, float v, const point3& p) const {
         return color{ 0.f, 0.f, 0.f };
     }
 
@@ -24,7 +24,7 @@ public:
 
 #pragma endregion
 
-#pragma region declaration of lambertian
+#pragma region LAMBERTIAN declaration
 
 class lambertian : public material {
 public:
@@ -82,7 +82,7 @@ float lambertian::scattering_pdf(const ray& r_in, const hit_record& rec, const r
     return 1 / (2 * pi);
 }
 
-#pragma region declaration of metalic
+#pragma region METALIC declaration
 class metalic : public material {
 public:
     metalic(const color& a, float f)
@@ -124,7 +124,7 @@ bool metalic::scatter(
     return (dot(scattered.direction(), rec.normal) > 0);
 }
 
-#pragma region declaration of dielectric
+#pragma region DIELECTRIC declaration
 class dielectric : public material {
 public:
     dielectric(float index_of_refraction = 1.f)
@@ -193,7 +193,7 @@ bool dielectric::scatter(
     return true;
 }
 
-#pragma region emissive like declaration
+#pragma region EMISSION declaration
 class diffuse_light : public material {
 
     std::shared_ptr<texture> tex{};
@@ -203,14 +203,16 @@ public:
     diffuse_light(std::shared_ptr<texture> tex) : tex{tex} {}
     diffuse_light(const color& emit) : tex{std::make_shared<solid_color>(emit)} {}
 
-    color emitted(float u, float v, const point3& p) const override {
+    color emitted(const ray& r_in, const hit_record& rec, float u, float v, const point3& p) const override {
+        if (!rec.front_face)
+            return color{ 0.f, 0.f, 0.f };
         return tex->value(u, v, p);
     }
 
 };
 #pragma endregion
 
-#pragma region isotropic decl
+#pragma region ISOTROPIC declaration
 class isotropic : public material {
     
     std::shared_ptr<texture> tex;

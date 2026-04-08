@@ -64,8 +64,8 @@ auto bouncing_spheres() -> int
         float distance = 1.5f + random_float() * 2.5f;
 
         // Random direction (spherical coordinates)
-        float theta = random_float() * 2 * std::numbers::pi;
-        float phi = random_float() * std::numbers::pi;
+        float theta = random_float() * 2 * pi;
+        float phi = random_float() * pi;
         
         // Convert spherical to Cartesian coordinates
         float x = reference_center.x() + distance * sin(phi) * cos(theta);
@@ -111,6 +111,10 @@ auto bouncing_spheres() -> int
 
     world = entity_list(std::make_shared<bvh_node>(world));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 16.0 / 10.0;
@@ -128,7 +132,7 @@ auto bouncing_spheres() -> int
     cam.focus_dist    = 10.0;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31ERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -152,6 +156,10 @@ auto two_spheres_scene() -> int {
     world.add(std::make_shared<sphere>(point3(0.f,-10.f, 0.f), 10.f, std::make_shared<lambertian>(checker)));
     world.add(std::make_shared<sphere>(point3(0.f, 10.f, 0.f), 10.f, std::make_shared<lambertian>(checker)));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 16.0 / 10.0;
@@ -168,7 +176,7 @@ auto two_spheres_scene() -> int {
     cam.defocus_angle = 0;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -189,6 +197,10 @@ auto earth() -> int {
     auto earth_surface = std::make_shared<lambertian>(earth_texture);
     auto globe = std::make_shared<sphere>(point3(0.f,0.f,0.f), 2.f, earth_surface);
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 16.0f / 9.0f;
@@ -206,7 +218,7 @@ auto earth() -> int {
 
     
     try {
-        cam.render(entity_list(globe));
+        cam.render(entity_list(globe), lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -229,6 +241,10 @@ auto perlin_spheres() -> int{
     world.add(std::make_shared<sphere>(point3(0.f,-1000.f,0.f), 1000.f, std::make_shared<lambertian>(pertext)));
     world.add(std::make_shared<sphere>(point3(0.f,2.f,0.f), 2.f, std::make_shared<lambertian>(pertext)));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 16.0 / 9.0;
@@ -245,7 +261,7 @@ auto perlin_spheres() -> int{
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -278,6 +294,10 @@ auto quads() -> int {
     world.add(std::make_shared<quad>(point3(-2.f, 3.f, 1.f), vec3(4.f, 0.f, 0.f), vec3(0.f, 0.f, 4.f), upper_orange));
     world.add(std::make_shared<quad>(point3(-2.f,-3.f, 5.f), vec3(4.f, 0.f, 0.f), vec3(0.f, 0.f,-4.f), lower_teal));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 1.0f;
@@ -294,7 +314,7 @@ auto quads() -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -321,6 +341,10 @@ auto simple_light() -> int {
     world.add(std::make_shared<sphere>(point3(0.f,7.f,0.f), 2.f, difflight));
     world.add(std::make_shared<quad>(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), difflight));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(3.f,1.f,-2.f), vec3(2.f,0.f,0.f), vec3(0.f,2.f,0.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 16.0f / 9.0f;
@@ -337,7 +361,7 @@ auto simple_light() -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -379,6 +403,10 @@ auto cornell_box(int _samples_per_pixel = 200) -> int {
     box2 = std::make_shared<translate>(box2, vec3(130.f,0.f,65.f));
     world.add(box2);
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(343.f, 554.f, 332.f), vec3(-130.f,0.f,0.f), vec3(0.f,0.f,-105.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 1.0f;
@@ -395,7 +423,7 @@ auto cornell_box(int _samples_per_pixel = 200) -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -437,6 +465,10 @@ auto cornell_smoke() -> int {
     world.add(std::make_shared<constant_medium>(box1, 0.01f, color(0.f,0.f,0.f)));
     world.add(std::make_shared<constant_medium>(box2, 0.01f, color(1.f,1.f,1.f)));
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(113.f,554.f,127.f), vec3(330.f,0.f,0.f), vec3(0.f,0.f,305.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 1.0f;
@@ -453,7 +485,7 @@ auto cornell_smoke() -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;
@@ -530,6 +562,10 @@ auto final_scene(int image_width, int samples_per_pixel, int max_depth) -> int {
         )
     );
 
+    // Light Sources
+    auto empty_material{ std::make_shared<material>() };
+    quad lightsource(point3(343.f, 554.f, 332.f), vec3(-130.f,0.f,0.f), vec3(0.f,0.f,-105.f), empty_material);
+
     camera cam;
 
     cam.aspect_ratio      = 1.0f;
@@ -547,7 +583,7 @@ auto final_scene(int image_width, int samples_per_pixel, int max_depth) -> int {
     cam.defocus_angle = 0.f;
 
     try {
-        cam.render(world);
+        cam.render(world, lightsource);
     } catch (const std::exception& e) {
         std::cerr << "\033[1;31mERROR:\033[0m " << e.what() << std::endl;
         std::cout << "Press Enter to exit..." << std::endl;

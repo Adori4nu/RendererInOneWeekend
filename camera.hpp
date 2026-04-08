@@ -4,6 +4,7 @@
 #include "color.hpp"
 #include "entity.hpp"
 #include "interval.hpp"
+#include "pdf.hpp"
 #include "material.hpp"
 
 #include "threading/thread_pool.hpp"
@@ -36,7 +37,7 @@ public:
     vec3 vertical{};
     vec3 origin{};
 
-    void render(const entity& world) {
+    void render(const entity& world, const entity& lights) {
         initialize();
 
         std::vector<color> frame_buffer(image_width * image_height, color(0, 0, 0));
@@ -72,7 +73,7 @@ public:
 
         for (int j = 0; j < image_height; j += tile_size) {
             for (int i = 0; i < image_width; i += tile_size) {
-                auto future = thread_pool.submit([this, &world, &frame_buffer, &frame_buffer_mutex
+                auto future = thread_pool.submit([this, &world, &frame_buffer, &lights, &frame_buffer_mutex
                     , i, j, tile_size, &completed_tiles
                     , total_tiles, &current_samples, &samples_mutex]() {
                     
@@ -81,14 +82,14 @@ public:
 
                     // Render pixels in tile
                     // Edited to sample every pixel in tile once and again
-                    // until rendered not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
+                    // until rendered; not rendering one pixel fully then going to next pixel (it looks nicer in preview imo)
                     for (int sample_j{ 0 }; sample_j < sqrt_samples_per_pixel; ++sample_j) {
                         for (int sample_i{ 0 }; sample_i < sqrt_samples_per_pixel; ++sample_i) {
                             for (int y{j}; y < y_end; ++y) {
                                 for (int x{i}; x < x_end; ++x) {
                                     
                                     ray r{ get_ray(x, y, sample_i, sample_j) };
-                                    color sample_color = ray_color(r, max_depth, world);
+                                    color sample_color = ray_color(r, max_depth, world, lights);
                                     
                                     {
                                         std::lock_guard<std::mutex> lock_frame_buf(frame_buffer_mutex);
@@ -164,7 +165,7 @@ private:
     vec3 sample_square_stratified(int sample_i, int sample_j) const;
     vec3 pixel_sample_disk(float radius) const;
     point3 defocus_disk_sample() const;
-    color ray_color(const ray& r, int depth, const entity& world) const;
+    color ray_color(const ray& r, int depth, const entity& world, const entity& lights) const;
 };
 #pragma endregion
 
@@ -241,7 +242,7 @@ inline point3 camera::defocus_disk_sample() const
     return center + ( p[0] * defocus_disk_u ) + ( p[1] * defocus_disk_v );
 }
 
-inline color camera::ray_color(const ray &r, int depth, const entity &world) const
+inline color camera::ray_color(const ray &r, int depth, const entity &world, const entity& lights) const
 {
     if (depth <= 0)
         return color{ 0.f, 0.f, 0.f };
@@ -254,15 +255,20 @@ inline color camera::ray_color(const ray &r, int depth, const entity &world) con
     ray scattered{};
     color attenuation{};
     float pdf_value{};
-    color color_from_emission{ rec.mat->emitted(rec.u, rec.v, rec.p) };
+    color color_from_emission{ rec.mat->emitted(r, rec,rec.u, rec.v, rec.p) };
 
     if (!rec.mat->scatter( r, rec, attenuation, scattered,  pdf_value))
         return color_from_emission;    
 
-    auto scattering_pdf{ rec.mat->scattering_pdf( r, rec, scattered ) };
-    pdf_value = scattering_pdf;
+    entity_pdf lights_pdf(lights, rec.p);
+    scattered = ray(rec.p, lights_pdf.generate(), r.time());
+    pdf_value = lights_pdf.value(scattered.direction());
 
-    color color_from_scatter{ (attenuation * scattering_pdf * ray_color(scattered, depth - 1, world) ) / pdf_value };
+    // cosine_pdf surface_pdf(rec.normal);
+    auto scattering_pdf{ rec.mat->scattering_pdf( r, rec, scattered ) };
+
+    color sample_color{ ray_color(scattered, depth - 1, world, lights) };
+    color color_from_scatter{ (attenuation * scattering_pdf * sample_color) / pdf_value };
 
     return color_from_emission + color_from_scatter;
 }
